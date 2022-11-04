@@ -1,7 +1,7 @@
 /**
- * @file displayRotateUpright.h
+ * @file Displayrotateupright.h
  *
- * @brief Display template based on the standard template but rotated 90 degrees
+ * @brief TODO
  *
  */
 
@@ -49,16 +49,30 @@ void displayLogo(String displaymessagetext, String displaymessagetext2) {
     u8g2.drawStr(0, 47, displaymessagetext.c_str());
     u8g2.drawStr(0, 55, displaymessagetext2.c_str());
 
-    u8g2.drawXBMP(11, 4, CleverCoffee_Logo_width, CleverCoffee_Logo_height, CleverCoffee_Logo);
+    //Rancilio startup logo
+    switch (machineLogo) {
+        case 1:
+            u8g2.drawXBMP(9, 2, startLogoRancilio_width, startLogoRancilio_height, startLogoRancilio_bits);
+            break;
+
+        case 2:
+            u8g2.drawXBMP(0, 2, startLogoGaggia_width, startLogoGaggia_height, startLogoGaggia_bits);
+            break;
+
+        case 3:
+            u8g2.drawXBMP(22, 0, startLogoQuickMill_width, startLogoQuickMill_height, startLogoQuickMill_bits);
+            break;
+    }
 
     u8g2.sendBuffer();
 }
 
-#if 0 // not used a.t.m.
+#if 0 //not used a.t.m.
 /**
  * @brief display emergency stop
  */
-void displayEmergencyStop(void) {
+void displayEmergencyStop(void)
+{
     u8g2.clearBuffer();
     u8g2.setCursor(1, 34);
     u8g2.print(langstring_current_temp_rot_ur);
@@ -84,35 +98,37 @@ void displayEmergencyStop(void) {
 }
 #endif
 
+
 /**
  * @brief display shot timer
  */
-bool displayShottimer() {
-    if (((timeBrewed > 0 && BREWCONTROL_TYPE == 0) || (BREWCONTROL_TYPE > 0 && currBrewState > kBrewIdle && currBrewState <= kBrewFinished)) && FEATURE_SHOTTIMER == 1 && SHOTTIMER_TYPE == 1) {
+void displayShottimer(void) {
+    if (((timeBrewed > 0 && ONLYPID == 1) || // timeBrewed bei Only PID
+        (ONLYPID == 0 && brewcounter > 10 && brewcounter <= 42)) // oder Bezug bei nicht only PID über brewcounter
+        && SHOTTIMER == 1) // Shotimer muss 1 = True sein und Bezug vorliegen
+    {
+        // Dann Zeit anzeigen
         u8g2.clearBuffer();
 
         // draw temp icon
-        u8g2.drawXBMP(0, 0, Brew_Cup_Logo_width, Brew_Cup_Logo_height, Brew_Cup_Logo);
+        u8g2.drawXBMP(0, 0, brewlogo_width, brewlogo_height, brewlogo_bits_u8g2);
         u8g2.setFont(u8g2_font_profont22_tf);
         u8g2.setCursor(5, 70);
         u8g2.print(timeBrewed / 1000, 1);
         u8g2.setFont(u8g2_font_profont11_tf);
         u8g2.sendBuffer();
-        return true;
+
     }
-    else if (FEATURE_SHOTTIMER == 1 && SHOTTIMER_TYPE == 1 && millis() >= lastBrewTimeMillis && // directly after creating lastbrewTimeMillis (happens when turning off the brew switch, case 43 in the code) should be started
-             lastBrewTimeMillis + SHOTTIMERDISPLAYDELAY >= millis() &&                          // should run until millis() has caught up with SHOTTIMERDISPLAYDELAY, this can be used to control the display duration
-             lastBrewTimeMillis < totalBrewTime) // if the totalBrewTime is reached automatically, nothing should be done, otherwise wrong time will be displayed because switch is pressed later than totalBrewTime
+    if (SHOTTIMER == 1 && millis() >= brewTime_last_Millis && // directly after creating brewTime_last_mills (happens when turning off the brew switch, case 43 in the code) should be started
+        brewTime_last_Millis+brewswitchDelay >= millis() && // should run until millis() has caught up with brewswitchDelay, this can be used to control the display duration
+        brewTime_last_Millis < totalBrewTime) // if the totalBrewTime is reached automatically, nothing should be done, otherwise wrong time will be displayed because switch is pressed later than totalBrewTime
     {
         u8g2.clearBuffer();
-        u8g2.drawXBMP(0, 0, Brew_Cup_Logo_width, Brew_Cup_Logo_height, Brew_Cup_Logo);
+        u8g2.drawXBMP(0, 0, brewlogo_width, brewlogo_height, brewlogo_bits_u8g2);
         u8g2.setFont(u8g2_font_profont22_tf);
         u8g2.setCursor(5, 70);
-        u8g2.print((lastBrewTimeMillis - startingTime) / 1000, 1);
+        u8g2.print((brewTime_last_Millis - startingTime) / 1000, 1);
         u8g2.setFont(u8g2_font_profont11_tf);
         u8g2.sendBuffer();
-        return true;
     }
-
-    return false
 }
