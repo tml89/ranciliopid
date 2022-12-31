@@ -102,7 +102,7 @@ void checkbrewswitch() {
                 break;
             case 30:
                 // Stop Brew trigger (one push) brewswitch == HIGH
-                if ((brewswitchTrigger == HIGH && brewswitch == HIGH) || (machinestate == kShotTimerAfterBrew) ) {
+                if ((brewswitchTrigger == HIGH && brewswitch == HIGH) || (machineState == kShotTimerAfterBrew) ) {
                     brewswitch = LOW;
                     brewswitchTriggerCase = 40;
                     brewswitchTriggermillis = millis();
@@ -356,7 +356,7 @@ void brew() {
             weightBrew = weight - weightPreBrew;
         }
 
-        if (brewswitch == LOW && firstreading == 0) {
+        if (brewswitch == LOW && movingAverageInitialized) {
             // check if brewswitch was turned off at least once, last time,
             brewswitchWasOFF = true;
         }

@@ -19,15 +19,14 @@
     static const char *langstring_brew_rot_ur =          "B: ";
 #endif
 
-static const char *langstring_offlinemod = "Offlinemodus";
+static const char *langstring_offlinemode = "Offline";
+#if TOF == 1
 static const char *langstring_waterempty = "Wasser leer";
+#endif
 
 static const char *langstring_wifirecon = "Wifi reconnect:";
-static const char *langstring_connectwifi1 = "1: Connect Wifi to:";
-// static const char *langstring_connectwifi2[] =  {"2: Wifi connected, ", "try Blynk   "};
-// static const char *langstring_connectblynk1[] =  {"Connect to Blynk", "no Fallback"};
-static const char *langstring_connectblynk2[] = {"3: Blynk connected", "sync all variables..."};
-static const char *langstring_nowifi[] = {"No ", "WIFI"};
+static const char *langstring_connectwifi1 = "1: Verbinde WLAN zu::";
+static const char *langstring_nowifi[] = {"Kein ", "WLAN"};
 
 static const char *langstring_error_tsensor[] = {"Fehler, Temp: ", "Temp.-Sensor ueberpruefen!"};
 // static const char *langstring_emergencyStop[] = {"HEATING", "STOPPED"};
@@ -49,17 +48,16 @@ static const char *langstring_bckfrunning[] = {"Backflush aktiv:", "seit"};
     static const char *langstring_brew_rot_ur = "B: ";
 #endif
 
-static const char *langstring_offlinemod = "Offline mode";
+static const char *langstring_offlinemode = "Offline";
+#if TOF == 1
 static const char *langstring_waterempty = "Empty water";
+#endif
 
 static const char *langstring_wifirecon = "Wifi reconnect:";
 static const char *langstring_connectwifi1 = "1: Connect Wifi to:";
-// static const char *langstring_connectwifi2[] =  {"2: Wifi connected, ", "try Blynk   "};
-// static const char *langstring_connectblynk1[] =  {"Connect to Blynk", "no Fallback"};
-static const char *langstring_connectblynk2[] = {"3: Blynk connected", "sync all variables..."};
 static const char *langstring_nowifi[] = {"No ", "WIFI"};
 
-static const char *langstring_error_tsensor[] = {"Error, Temp: ", "Check Temp. Sensor!"};
+static const char *langstring_error_tsensor[] = {"Error, Temp: ", "Check Temp sensor!"};
 // static const char *langstring_emergencyStop[] = {"HEATING", "STOPPED"};
 
 static const char *langstring_bckffinished[] = {"Backflush finished", "Please reset brew switch..."};
@@ -79,14 +77,13 @@ static const char *langstring_bckfrunning[] = {"Backflush running:", "from"};
     static const char *langstring_brew_rot_ur = "B: ";
 #endif
 
-static const char *langstring_offlinemod = "Modo offline";
+static const char *langstring_offlinemode = "Offline";
+#if TOF == 1
 static const char *langstring_waterempty = "Agua vacía";
+#endif
 
 static const char *langstring_wifirecon = "Reconecta wifi:";
 static const char *langstring_connectwifi1 = "1: Wifi conectado :";
-// static const char *langstring_connectwifi2[] =  {"2: Wifi conectado, ", "proba. Blynk"};
-// static const char *langstring_connectblynk1[] =  {"Conect. a Blynk ", "no Fallback"};
-static const char *langstring_connectblynk2[] = {"3: Conect. a Blynk", "sincron. variables..."};
 static const char *langstring_nowifi[] = {"No ", "WIFI"};
 
 static const char *langstring_error_tsensor[] = {"Error, Temp: ", "Comprueba sensor T!"};

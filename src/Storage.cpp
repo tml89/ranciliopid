@@ -43,7 +43,7 @@ typedef struct __attribute__((packed)) {
     uint8_t freeToUse8[2];
     double pidTvBd;
     uint8_t freeToUse9[2];
-    double brewSwTimerSec;
+    double brewSwTimeSec;
     uint8_t freeToUse10[2];
     double brewDetectionThreshold;
     uint8_t freeToUse11;
@@ -71,7 +71,7 @@ static const sto_data_t itemDefaults PROGMEM = {
     AGGIMAX,                  // STO_ITEM_PID_I_MAX_REGULAR
     0xFF,                     // free to use
     SETPOINT,                 // STO_ITEM_BREW_SETPOINT
-    TEMPOFFSET,             
+    TEMPOFFSET,
     0xFF,                     // free to use
     BREW_TIME,                // STO_ITEM_BREW_TIME
     {0xFF, 0xFF},             // free to use
@@ -88,7 +88,7 @@ static const sto_data_t itemDefaults PROGMEM = {
     {0xFF, 0xFF},                             // free to use
     AGGBTV,                                   // STO_ITEM_PID_TV_BD
     {0xFF, 0xFF},                             // free to use
-    BREW_SW_TIMER,                            // STO_ITEM_BREW_SW_TIMER
+    BREW_SW_TIME,                             // STO_ITEM_BREW_SW_TIME
     {0xFF, 0xFF},                             // free to use
     BREWSENSITIVITY,                          // STO_ITEM_BD_THRESHOLD
     0xFF,                                     // free to use
@@ -102,7 +102,7 @@ static const sto_data_t itemDefaults PROGMEM = {
     "",            // STO_ITEM_WIFI_SSID
     "",            // STO_ITEM_WIFI_PASSWORD
     SCALE_WEIGHTSETPOINT,
-    STEAMKP    
+    STEAMKP
 };
 
 /**
@@ -185,9 +185,9 @@ static inline int32_t getItemAddr(sto_item_id_t itemId, uint16_t* maxItemSize = 
             size = STRUCT_MEMBER_SIZE(sto_data_t, pidTvBd);
             break;
 
-        case STO_ITEM_BREW_SW_TIMER:
-            addr = offsetof(sto_data_t, brewSwTimerSec);
-            size = STRUCT_MEMBER_SIZE(sto_data_t, brewSwTimerSec);
+        case STO_ITEM_BREW_SW_TIME:
+            addr = offsetof(sto_data_t, brewSwTimeSec);
+            size = STRUCT_MEMBER_SIZE(sto_data_t, brewSwTimeSec);
             break;
 
         case STO_ITEM_BD_THRESHOLD:
@@ -233,7 +233,7 @@ static inline int32_t getItemAddr(sto_item_id_t itemId, uint16_t* maxItemSize = 
          case STO_ITEM_PID_KP_STEAM:
             addr = offsetof(sto_data_t, steamkp);
             size = STRUCT_MEMBER_SIZE(sto_data_t, steamkp);
-            break;    
+            break;
 
          case STO_ITEM_WEIGHTSETPOINT:
             addr = offsetof(sto_data_t,weightsetpoint );

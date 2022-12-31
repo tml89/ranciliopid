@@ -42,7 +42,7 @@ struct editable_t {
     String helpText;
     EditableKind type;
     int section;                   // parameter section number
-    std::function<bool()> show;    // method that determines if we show this parameter (in the web interface)    
+    std::function<bool()> show;    // method that determines if we show this parameter (in the web interface)
     int minValue;
     int maxValue;
     void *ptr;                     // TODO: there must be a tidier way to do this? could we use c++ templates?
@@ -222,7 +222,8 @@ constexpr unsigned int str2int(const char* str, int h = 0) {
 }
 
 String getHeader(String varName) {
-    //TODO: actually put the references libs on local file system again (only when using ESP32 which has more flash mem, but also make sure web server can handle this many concurrent requests (might crash, at least with ESP8266)
+    //TODO: actually put the references libs on local file system again (only when using ESP32 which has more flash mem,
+    //but also make sure web server can handle this many concurrent requests (might crash)
     switch (str2int(varName.c_str())) {
         case (str2int("FONTAWESOME")):
             #if defined(WEB_USE_LOCAL_LIBS) && WEB_USE_LOCAL_LIBS == 1
@@ -278,16 +279,21 @@ String staticProcessor(const String& var) {
 
     File file = LittleFS.open("/html_fragments/" + varLower + ".htm", "r");
 
-    if (file && file.size()*2 < ESP.getFreeHeap()) {
-        String ret = file.readString();
-        file.close();
-        return ret;
+    if (file) {
+        if (file.size()*2 < ESP.getFreeHeap()) {
+            String ret = file.readString();
+            file.close();
+            return ret;
+        } else {
+            debugPrintf("Can't open file %s, not enough memory available\n", file.name());
+        }
     } else {
-        debugPrintf("Can't open file %s, not enough memory available\n", file ? file.name() : "");
+        debugPrintf("Fragment %s not found\n", varLower.c_str());
     }
-    
+
     skipHeaterISR = false;
 
+    //didn't find a value for the var, replace var with empty string
     return String();
 }
 
@@ -329,9 +335,10 @@ void serverSetup() {
         if (request->method() == 2) {   //returns values from WebRequestMethod enum -> 2 == HTTP_POST
             //update all given params and match var name in editableVars
             int params = request->params();
-            String m = "Got ";
+            /*String m = "Got ";
             m += params;
             m += " request parameters: <br />";
+            */
 
             for (int i = 0 ; i < params; i++) {
                 AsyncWebParameter* p = request->getParam(i);
@@ -347,21 +354,23 @@ void serverSetup() {
                         continue;
                     }
 
+                    /*
                     m += "Setting ";
                     m += e.displayName;
                     m += " from ";
+                    */
 
                     if (e.type == kInteger) {
-                        m += *(int *)e.ptr;
+                        //m += *(int *)e.ptr;
 
                         int newVal = atoi(p->value().c_str());
                         *(int *)e.ptr = newVal;
                     } else if (e.type == kUInt8) {
-                        m += *(uint8_t *)e.ptr;
+                        //m += *(uint8_t *)e.ptr;
 
                         *(uint8_t *)e.ptr = (uint8_t)atoi(p->value().c_str());
                     } else if (e.type == kDouble || e.type == kDoubletime) {
-                        m += *(double *)e.ptr;
+                        //m += *(double *)e.ptr;
 
                         float newVal = atof(p->value().c_str());
                         *(double *)e.ptr = newVal;
@@ -372,7 +381,7 @@ void serverSetup() {
 
                         String val = p->value();
                         static const char* newVal = new char[val.length() + 1]; //is this persistent or on stack?
-                        val.toCharArray(newVal, val.length() + 1); 
+                        val.toCharArray(newVal, val.length() + 1);
 
                         if (e.ptr) {
                             delete[] ((char *)e.ptr);
@@ -380,14 +389,14 @@ void serverSetup() {
                         e.ptr = (void *)newVal;
                     }*/
 
-                    m += " to ";
+                    /*m += " to ";
                     m += p->value();
 
-                    m += "<br/>";
+                    m += "<br/>";*/
                 }
             }
 
-            request->send(200, "text/html", m);
+            request->send(200, "text/html", "Parameters saved");
 
             // Write to EEPROM
             if (writeToEeprom) {
@@ -398,8 +407,7 @@ void serverSetup() {
                 }
             }
 
-            // Write the new values to Blynk and MQTT
-            writeSysParamsToBlynk();
+            // Write the new values to MQTT
             writeSysParamsToMQTT();
 
         } else if (request->method() == 1) {  //WebRequestMethod enum -> HTTP_GET
@@ -416,7 +424,7 @@ void serverSetup() {
                     //skip vars until we find the one for the id in the request parameter
                     if (paramId != e.templateString) {
                         continue;
-                    }                        
+                    }
                 }
 
                 JsonObject paramObj = doc.createNestedObject();
@@ -437,7 +445,7 @@ void serverSetup() {
                     paramObj["value"] = round2(*(double *)e.ptr);
                 } else if (e.type == kCString) {
                     paramObj["value"] = String((char *)e.ptr);
-                }                
+                }
                 paramObj["min"] = e.minValue;
                 paramObj["max"] = e.maxValue;
 
@@ -461,9 +469,13 @@ void serverSetup() {
     });
 
     server.on("/parameterHelp", HTTP_GET, [](AsyncWebServerRequest *request) {
-        DynamicJsonDocument doc(4096);
+        DynamicJsonDocument doc(1024);
 
         AsyncWebParameter* p = request->getParam(0);
+        if (p == NULL) {
+            request->send(422, "text/plain", "parameter is missing");
+            return;
+        }
         const String& varValue = p->value();
 
         skipHeaterISR = true;
@@ -502,7 +514,7 @@ void serverSetup() {
         JsonArray currentTemps = doc.createNestedArray("currentTemps");
         JsonArray targetTemps = doc.createNestedArray("targetTemps");
         JsonArray heaterPowers = doc.createNestedArray("heaterPowers");
-        
+
         //go through history values backwards starting from currentIndex and wrap around beginning
         //to include valueCount many values
         for (int i=mod(historyCurrentIndex-historyValueCount, HISTORY_LENGTH);
@@ -517,7 +529,7 @@ void serverSetup() {
         serializeJson(doc, *response);
         request->send(response);
     });
-    
+
     server.onNotFound([](AsyncWebServerRequest *request) {
         request->send(404, "text/plain", "Not found");
     });
