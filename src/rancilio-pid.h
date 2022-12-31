@@ -16,7 +16,7 @@ int writeSysParamsToStorage(void);
 // default parameters
 #define SETPOINT 95                // brew temperature setpoint
 #define TEMPOFFSET 0               // brew temperature setpoint
-#define STEAMSETPOINT 120          // steam temperature setpoint
+#define STEAMSETPOINT 125          // steam temperature setpoint
 #define BREWSENSITIVITY 120        // brew detection sensitivity, be careful: if too low, then there is the risk of wrong brew detection and rising temperature
 #define AGGKP 62                   // PID Kp (regular phase)
 #define AGGTN 52                   // PID Tn (regular phase)

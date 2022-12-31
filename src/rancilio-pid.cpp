@@ -269,6 +269,12 @@ int backflushON = 0;             // 1 = backflush mode active
 int flushCycles = 0;             // number of active flush cycles
 int backflushState = 10;         // counter for state machine
 
+// Temp LED
+unsigned long previousTempLedMillis = 0;    // will store last time LED was updated
+unsigned long tempLedInterval = 500;            // interval at which to blink (milliseconds)
+int ledState = LOW;                         // ledState used to set the LED
+int brewReadyLedON, brewReadyLedOFF;        // used for brewReady LED
+
 // Moving average for software brew detection
 double tempRateAverage = 0;             // average value of temp values
 double tempChangeRateAverageMin = 0;
@@ -1702,19 +1708,77 @@ void debugVerboseOutput() {
 }
 
 /**
- * @brief TODO
+ * @brief blink LED to intervall
  */
-void tempLed() {
-    if (TEMPLED == 1) {
-        pinMode(LEDPIN, OUTPUT);
-        digitalWrite(LEDPIN, LOW);
+void blinkLED(){
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousTempLedMillis >= tempLedInterval) {
+        // save the last time you blinked the LED
+        previousTempLedMillis = currentMillis;
 
-        // inner Tempregion
-        if ((machinestate == kPidNormal && (fabs(temperature - setPoint) < 0.5)) || (temperature > 115 && fabs(temperature - brewSetPoint) < 5))  {
-            digitalWrite(LEDPIN, HIGH);
+        // if the LED is off turn it on and vice-versa:
+        if (ledState == LOW) {
+            ledState = HIGH;
+        } else {
+            ledState = LOW;
         }
+
+        // set the LED with the ledState of the variable:
+        digitalWrite(LEDPIN, ledState);
     }
 }
+
+/**
+ * @brief set Temp LED to maschine brew/Steam readyness
+ */
+void tempLed() {
+    if (TEMPLED <= 0) {
+        return;
+    } 
+
+    // LED off if PID is offline
+    if (machinestate == kPidOffline) {
+        digitalWrite(LEDPIN, LOW);
+        return;
+    }  
+
+    // Brew ready 1 degree tolerance 
+    if ((machinestate == kPidNormal|| machinestate == kBrewDetectionTrailing) && (fabs(temperature - setPoint) < 1.0)) {
+        digitalWrite(LEDPIN, brewReadyLedON);
+        return;
+    }
+
+    // Steam ready 2 degree tollerance
+    if (machinestate == kSteam && temperature > steamSetPoint-2) {
+        digitalWrite(LEDPIN, brewReadyLedON);
+        return;
+    }
+
+    // Blink led on steam heating
+    if (machinestate == kSteam && temperature < steamSetPoint-2) {
+        tempLedInterval = 500;
+        blinkLED();
+        return;
+    }
+
+    // Blink led on error
+    if (machinestate == kSensorError) {
+        tempLedInterval = 100;
+        blinkLED();
+        return;
+    }
+
+    //Steam || Brew not ready 
+    digitalWrite(LEDPIN, brewReadyLedOFF);
+}
+
+static bool previousMode = false;
+void setHardwareLed(bool mode) {
+    if (TEMPLED > 0 && mode != previousMode) {
+        digitalWrite(LEDPIN, mode);
+        previousMode = mode;
+    }
+} 
 
 /**
  * @brief Set up internal WiFi hardware
@@ -1940,6 +2004,25 @@ void setup() {
         VoltageSensorON = LOW;
         VoltageSensorOFF = HIGH;
     }
+
+    // Initialize TempLED
+    if (TEMPLED > 0) {
+        //int brewReadyLedON, brewReadyLedOFF
+        brewReadyLedON = HIGH;
+        brewReadyLedOFF = LOW;
+
+        //If TEMPLED is 2, sw. high and low
+        if (TEMPLED == 2) {
+            brewReadyLedON = LOW;
+            brewReadyLedOFF = HIGH;
+        }
+
+        //Set PIN for tempLED
+        pinMode(LEDPIN, OUTPUT);
+
+        //set LED to start value
+        digitalWrite(LEDPIN, brewReadyLedOFF);
+    } 
 
     // Initialize Pins
     pinMode(PINVALVE, OUTPUT);
@@ -2569,6 +2652,7 @@ void writeSysParamsToMQTT(void) {
             mqtt_publish("preinfusion", number2string(preinfusion));
             mqtt_publish("steamON", number2string(steamON));
             mqtt_publish("backflushON", number2string(backflushON));
+            mqtt_publish("machinestate", (char *)machinestateEnumToString(machinestate));
 
             // Normal PID
             mqtt_publish("aggKp", number2string(aggKp));
