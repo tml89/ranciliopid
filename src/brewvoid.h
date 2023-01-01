@@ -65,11 +65,11 @@ void checkbrewswitch() {
             if (currentMillistemp - previousMillistempanalogreading >= analogreadingtimeinterval) {
                 previousMillistempanalogreading = currentMillistemp;
 
-                if (filter(analogRead(analogPin)) > 1000) {
+                if ((analogRead(analogPin)) > 1000) {
                     brewswitchTrigger = HIGH;
                 }
 
-                if (filter(analogRead(analogPin)) < 1000) {
+                if ((analogRead(analogPin)) < 1000) {
                     brewswitchTrigger = LOW;
                 }
             }
