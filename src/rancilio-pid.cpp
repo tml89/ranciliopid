@@ -658,6 +658,7 @@ void refreshTemp() {
 
 
 #include "brewvoid.h"
+#include "powerswitchvoid.h"
 #include "scalevoid.h"
 
 /**
@@ -1003,6 +1004,9 @@ void assignMQTTParam(char *param, double value) {
     if (paramValid && paramInRange) {
         if (key.equals("steamON")) {
             steamFirstON = value;
+        }
+        if (key.equals("pidON")) {
+            setPidStatus (value);
         }
 
         mqtt_publish(param, number2string(value));
@@ -1592,32 +1596,32 @@ void tempLed() {
     } 
 
     // LED off if PID is offline
-    if (machinestate == kPidOffline) {
+    if (machineState == kPidOffline) {
         digitalWrite(LEDPIN, LOW);
         return;
     }  
 
     // Brew ready 1 degree tolerance 
-    if ((machinestate == kPidNormal|| machinestate == kBrewDetectionTrailing) && (fabs(temperature - setPoint) < 1.0)) {
+    if ((machineState == kPidNormal|| machineState == kBrewDetectionTrailing) && (fabs(temperature - setPoint) < 1.0)) {
         digitalWrite(LEDPIN, brewReadyLedON);
         return;
     }
 
     // Steam ready 2 degree tollerance
-    if (machinestate == kSteam && temperature > steamSetPoint-2) {
+    if (machineState == kSteam && temperature > steamSetPoint-2) {
         digitalWrite(LEDPIN, brewReadyLedON);
         return;
     }
 
     // Blink led on steam heating
-    if (machinestate == kSteam && temperature < steamSetPoint-2) {
+    if (machineState == kSteam && temperature < steamSetPoint-2) {
         tempLedInterval = 500;
         blinkLED();
         return;
     }
 
     // Blink led on error
-    if (machinestate == kSensorError) {
+    if (machineState == kSensorError) {
         tempLedInterval = 100;
         blinkLED();
         return;
@@ -1834,6 +1838,9 @@ void setup() {
         digitalWrite(LEDPIN, brewReadyLedOFF);
     } 
 
+    //Set PIN for relay
+    pinMode(LEDRELAYPIN, OUTPUT);
+
     // Initialize Pins
     pinMode(PINVALVE, OUTPUT);
     pinMode(PINPUMP, OUTPUT);
@@ -1853,6 +1860,11 @@ void setup() {
     // IF Voltage sensor selected
     if (BREWDETECTION == 3) {
         pinMode(PINVOLTAGESENSOR, PINMODEVOLTAGESENSOR);
+    }
+
+    // IF POWERSWITCH is connected
+    if (POWERSWITCHTYPE > 0) {
+        pinMode(PINPOWERSWITCH, INPUT);
     }
 
     // IF PINBREWSWITCH & Steam selected
@@ -2132,6 +2144,7 @@ void looppid() {
     brew();                  // start brewing if button pressed
     checkSteamON();          // check for steam
     setEmergencyStopTemp();
+    checkpowerswitch();
     handleMachineState();      // update machineState
     tempLed();
 
@@ -2285,6 +2298,16 @@ void setSteamMode(int steamMode) {
 
 void setPidStatus(int pidStatus) {
     pidON = pidStatus;
+    if (pidON == 1)
+    {
+        debugPrintln("PID ON - Relay LOW");
+        digitalWrite(LEDRELAYPIN, LOW);
+    }
+    else
+    {   
+        debugPrintln("PID OFF - Relay HIGH");
+        digitalWrite(LEDRELAYPIN, HIGH);
+    }    
     writeSysParamsToStorage();
 }
 
@@ -2415,7 +2438,7 @@ void writeSysParamsToMQTT(void) {
             mqtt_publish("preinfusion", number2string(preinfusion));
             mqtt_publish("steamON", number2string(steamON));
             mqtt_publish("backflushON", number2string(backflushON));
-            mqtt_publish("machinestate", (char *)machinestateEnumToString(machinestate));
+            mqtt_publish("machinestate", (char *)machinestateEnumToString(machineState));
 
             // Normal PID
             mqtt_publish("aggKp", number2string(aggKp));
