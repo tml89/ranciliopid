@@ -1588,6 +1588,15 @@ void blinkLED(){
 }
 
 /**
+ * @brief fade LED to intervall
+ */
+void fadeLED(){
+    unsigned long currentMillis = millis();
+    long value = 128+127*cos(2*PI/tempLedInterval*currentMillis);
+    analogWrite(LEDPIN, value);   
+}
+
+/**
  * @brief set Temp LED to maschine brew/Steam readyness
  */
 void tempLed() {
@@ -1615,15 +1624,15 @@ void tempLed() {
 
     // Blink led on steam heating
     if (machineState == kSteam && temperature < steamSetPoint-2) {
-        tempLedInterval = 500;
-        blinkLED();
+        tempLedInterval = 1000;
+        fadeLED();
         return;
     }
 
     // Blink led on error
     if (machineState == kSensorError) {
         tempLedInterval = 100;
-        blinkLED();
+        fadeLED();
         return;
     }
 
