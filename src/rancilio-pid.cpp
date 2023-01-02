@@ -1640,14 +1640,6 @@ void tempLed() {
     digitalWrite(LEDPIN, brewReadyLedOFF);
 }
 
-static bool previousMode = false;
-void setHardwareLed(bool mode) {
-    if (TEMPLED > 0 && mode != previousMode) {
-        digitalWrite(LEDPIN, mode);
-        previousMode = mode;
-    }
-} 
-
 /**
  * @brief Set up internal WiFi hardware
  */
