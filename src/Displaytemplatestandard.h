@@ -98,8 +98,8 @@ void printScreen()
 
         // Brew time or uptime
         u8g2.setCursor(32, 34);
-
-        if (machineState == kBrew) {
+        // Shotimer shown if machine is brewing and after the brew 
+        if (machineState == kBrew || machineState == kShotTimerAfterBrew) {
             //show shot time
             u8g2.print(langstring_brew);
             u8g2.print(timeBrewed / 1000, 0);
@@ -162,7 +162,7 @@ void printScreen()
         }
 
     #if TOF == 1
-        u8g2.setCursor(100, 2);
+        u8g2.setCursor(105, 1);
         u8g2.printf("%.0f\n", percentage);   //display water level
         u8g2.print((char)37);
     #endif
