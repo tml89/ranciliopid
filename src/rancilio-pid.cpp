@@ -2457,7 +2457,6 @@ void writeSysParamsToMQTT(void) {
             mqtt_publish("preinfusion", number2string(preinfusion));
             mqtt_publish("steamON", number2string(steamON));
             mqtt_publish("backflushON", number2string(backflushON));
-            mqtt_publish("machinestate", (char *)machinestateEnumToString(machineState));
 
             // Normal PID
             mqtt_publish("aggKp", number2string(aggKp));
