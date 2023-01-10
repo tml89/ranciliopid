@@ -1636,6 +1636,16 @@ void tempLed() {
         return;
     }
 
+    // LED fade in until brewTime is reached
+    if (machineState == kBrew ) {
+        unsigned long currentMillis = millis();
+        long value = (255 / brewtime) * (timeBrewed / 1000);
+        if (value >= 255)
+            value = 255;
+        analogWrite(LED, value);
+        return;
+    }
+
     //Steam || Brew not ready 
     digitalWrite(LEDPIN, brewReadyLedOFF);
 }
