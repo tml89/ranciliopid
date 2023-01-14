@@ -230,6 +230,10 @@ int backflushON = 0;             // 1 = backflush mode active
 int flushCycles = 0;             // number of active flush cycles
 int backflushState = 10;         // counter for state machine
 
+// Status LED
+unsigned long statusLedInterval = 500;      // interval at which to fade (milliseconds)
+int statusLedON, statusLedOFF;              // used for status LED
+
 // Moving average for software brew detection
 double tempRateAverage = 0;             // average value of temp values
 double tempChangeRateAverageMin = 0;
@@ -1324,6 +1328,84 @@ void debugVerboseOutput() {
     }
 }
 
+/**
+ * @brief fade LED to intervall
+ */
+void fadeStatusLED(){
+    unsigned long currentMillis = millis();
+    long value = 128+127*cos(2*PI/statusLedInterval*currentMillis);
+    analogWrite(PIN_STATUSLED, value);   
+}
+
+/**
+ * @brief set Status LED to maschine brew/Steam readyness
+ */
+void statusLed() {
+    if (STATUSLED <= 0) {
+        return;
+    } 
+
+    // LED off if PID is offline
+    if (machineState == kPidOffline) {
+        digitalWrite(PIN_STATUSLED, LOW);
+        return;
+    }  
+
+    // Brew ready 1 degree tolerance 
+    if ((machineState == kPidNormal|| machineState == kBrewDetectionTrailing) && (fabs(temperature - setPoint) < 1.0)) {
+        digitalWrite(PIN_STATUSLED, statusLedON);
+        return;
+    }
+
+    // Steam ready 2 degree tollerance
+    if (machineState == kSteam && temperature > steamSetPoint-2) {
+        digitalWrite(PIN_STATUSLED, statusLedON);
+        return;
+    }
+
+    // Fade led on steam heating
+    if (machineState == kSteam && temperature < steamSetPoint-2) {
+        statusLedInterval = 1000;
+        fadeStatusLED();
+        return;
+    }
+
+    // fade led on error
+    if (machineState == kSensorError && machineState == keepromError) {
+        statusLedInterval = 500;
+        fadeStatusLED();
+        return;
+    }
+
+    // fade led fast on kEmergencyStop
+    if (machineState == kEmergencyStop) {
+        statusLedInterval = 100;
+        fadeStatusLED();
+        return;
+    }
+
+    // fade in until totalBrewTime is reached
+    if (machineState == kBrew ) {
+        long value = 0;
+
+        // calc led brighness 
+        if (ONLYPID == 1) {
+            long value = (255 / (brewtimesoftware / 1000)) * (timeBrewed / 1000);   // take SW brewtime on onlyPID
+        } else {
+            long value = (255 / (totalBrewTime / 1000)) * (timeBrewed / 1000);      // take total brewtime including preinfusion
+        }  
+
+        if (value > 255){
+            value = 255;
+        }
+
+        analogWrite(PIN_STATUSLED, value);
+        return;
+    }
+
+    //Steam || Brew not ready 
+    digitalWrite(PIN_STATUSLED, statusLedOFF);
+}
 
 /**
  * @brief Set up internal WiFi hardware
@@ -1496,6 +1578,22 @@ void setup() {
     } else {
         VoltageSensorON = LOW;
         VoltageSensorOFF = HIGH;
+    }
+
+    // Initialize status LED
+    if (STATUSLED > 0) {
+        //int statusLedON, statusLedOFF
+        statusLedON = HIGH;
+        statusLedOFF = LOW;
+
+        //If status LED is 2, sw. high and low
+        if (STATUSLED == 2) {
+            statusLedON = LOW;
+            statusLedOFF = HIGH;
+        }
+
+        //Set PIN for status LED
+        pinMode(PIN_STATUSLED, OUTPUT);
     }
 
     // Initialize Pins
@@ -1694,6 +1792,7 @@ void looppid() {
     checkSteamON();          // check for steam
     setEmergencyStopTemp();
     handleMachineState();      // update machineState
+    statusLed();
 
     if (INFLUXDB == 1  && offlineMode == 0 ) {
         sendInflux();
