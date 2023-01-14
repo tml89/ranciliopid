@@ -1015,9 +1015,6 @@ void assignMQTTParam(char *param, double value) {
         if (key.equals("steamON")) {
             steamFirstON = value;
         }
-        if (key.equals("pidON")) {
-            setPidStatus (value);
-        }
 
         mqtt_publish(param, number2string(value));
         writeSysParamsToStorage();
@@ -1640,19 +1637,25 @@ void tempLed() {
     }
 
     // Blink led on error
-    if (machineState == kSensorError) {
+    if (machineState == kSensorError && machineState == keepromError) {
         tempLedInterval = 100;
+        fadeLED();
+        return;
+    }
+
+    // Blink led fast on kEmergencyStop
+    if (machineState == kEmergencyStop) {
+        tempLedInterval = 500;
         fadeLED();
         return;
     }
 
     // LED fade in until brewTime is reached
     if (machineState == kBrew ) {
-        unsigned long currentMillis = millis();
         long value = (255 / brewtime) * (timeBrewed / 1000);
         if (value >= 255)
             value = 255;
-        analogWrite(LED, value);
+        analogWrite(LEDPIN, value);
         return;
     }
 
@@ -2168,9 +2171,24 @@ void looppid() {
     brew();                  // start brewing if button pressed
     checkSteamON();          // check for steam
     setEmergencyStopTemp();
-    checkpowerswitch();
+    
+    if (POWERSWITCHTYPE > 0) {
+        checkpowerswitch();
+    }
+
     handleMachineState();      // update machineState
     tempLed();
+
+    if (pidON == 1)
+    {
+        debugPrintln("PID ON - Relay LOW");
+        digitalWrite(LEDRELAYPIN, LOW);
+    }
+    else
+    {   
+        debugPrintln("PID OFF - Relay HIGH");
+        digitalWrite(LEDRELAYPIN, HIGH);
+    }  
 
     if (INFLUXDB == 1  && offlineMode == 0 ) {
         sendInflux();
@@ -2321,17 +2339,7 @@ void setSteamMode(int steamMode) {
 }
 
 void setPidStatus(int pidStatus) {
-    pidON = pidStatus;
-    if (pidON == 1)
-    {
-        debugPrintln("PID ON - Relay LOW");
-        digitalWrite(LEDRELAYPIN, LOW);
-    }
-    else
-    {   
-        debugPrintln("PID OFF - Relay HIGH");
-        digitalWrite(LEDRELAYPIN, HIGH);
-    }    
+    pidON = pidStatus;  
     writeSysParamsToStorage();
 }
 
