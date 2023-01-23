@@ -1,16 +1,16 @@
 /**
  * @file    userConfig_sample.h
  * @brief   Values must be configured by the user
- * @version 3.1.1 Master
+ * @version 4.0.0 Master
  *
  */
-#ifndef _userConfig_H
-#define _userConfig_H
+
+#pragma once
 
 // firmware version (must match with definitions in the main source file)
-#define USR_FW_VERSION    3
-#define USR_FW_SUBVERSION 1
-#define USR_FW_HOTFIX     1
+#define USR_FW_VERSION    4
+#define USR_FW_SUBVERSION 0
+#define USR_FW_HOTFIX     0
 #define USR_FW_BRANCH     "MASTER"
 
 // List of supported machines
@@ -54,7 +54,8 @@ enum MACHINE {
 #define BREWMODE 1                 // 1 = Brew by time (with preinfusion); 2 = Brew by weight (from scale)
 #define BREWDETECTION 0            // 0 = off, 1 = Software (Onlypid 1), 2 = Hardware (Onlypid 0), 3 = Sensor/Hardware for Only PID
 #define BREWSWITCHTYPE 1           // 1 = normal Switch, 2 = Trigger Switch
-#define TRIGGERTYPE HIGH           // LOW = low trigger, HIGH = high trigger relay
+#define POWERSWITCHTYPE 0          // 0 = no switch connected, 1 = normal Switch, 2 = Trigger Switch
+#define TRIGGERTYPE HIGH           // LOW = low trigger, HIGH = high trigger relay for pump & valve
 #define VOLTAGESENSORTYPE HIGH     // BREWDETECTION 3 configuration
 #define PINMODEVOLTAGESENSOR INPUT // Mode INPUT_PULLUP, INPUT or INPUT_PULLDOWN_16 (Only Pin 16)
 #define PRESSURESENSOR 0           // 1 = pressure sensor connected to A0; PINBREWSWITCH must be set to the connected input!
@@ -111,6 +112,4 @@ enum MACHINE {
 // defined compiler errors
 #if (PRESSURESENSOR == 1) && (PINPRESSURESENSOR == 0) && (PINBREWSWITCH == 0)
   #error Change PINBREWSWITCH or PRESSURESENSOR!
-#endif
-
 #endif

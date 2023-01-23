@@ -17,10 +17,10 @@ void checkpowerswitch() {
     #if POWERSWITCHTYPE == 1
         // Set pidON to 1 when powerswitch is HIGH
         if (digitalRead(PINPOWERSWITCH) == HIGH) {
-            setPidStatus (1);
+            pidON = 1;
         } else {
             // Set pidON to 0 when powerswitch is not HIGH
-            setPidStatus (0);
+            pidON = 0;
         }
     #endif
 
@@ -44,10 +44,10 @@ void checkpowerswitch() {
                 if (buttonStatePowerTrigger == HIGH) {
                     if (pidON == 0) {
                         Serial.println("Turn Heating ON");
-                        setPidStatus (1);
+                        pidON = 1;
                     } else {
                         Serial.println("Turn Heating OFF");
-                        setPidStatus (0);
+                        pidON = 0;
                     }
                 }
             }

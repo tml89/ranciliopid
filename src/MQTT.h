@@ -48,11 +48,11 @@ extern std::vector<mqttVars_t> mqttVars;
 
 
 /**
- * @brief Check if MQTT is connected, if not reconnect abort function if offline, or brew is running
+ * @brief Check if MQTT is connected, if not reconnect. Abort function if offline or brew is running
  *      MQTT is also using maxWifiReconnects!
  */
 void checkMQTT() {
-    if (offlineMode == 1 || brewcounter > 11) return;
+    if (offlineMode == 1 || brewcounter > kBrewIdle) return;
 
     if ((millis() - lastMQTTConnectionAttempt >= wifiConnectionDelay) && (MQTTReCnctCount <= maxWifiReconnects)) {
         int statusTemp = mqtt.connected();
@@ -60,11 +60,11 @@ void checkMQTT() {
         if (statusTemp != 1) {
             lastMQTTConnectionAttempt = millis();  // Reconnection Timer Function
             MQTTReCnctCount++;                     // Increment reconnection Counter
-            Serial.printf("Attempting MQTT reconnection: %i\n", MQTTReCnctCount);
+            debugPrintf("Attempting MQTT reconnection: %i\n", MQTTReCnctCount);
 
             if (mqtt.connect(hostname, mqtt_username, mqtt_password, topic_will, 0, 0, "offline") == true) {
                 mqtt.subscribe(topic_set);
-                Serial.println("Subscribe to MQTT Topics");
+                debugPrintln("Subscribe to MQTT Topics");
             }   // Try to reconnect to the server; connect() is a blocking
                 // function, watch the timeout!
         }
