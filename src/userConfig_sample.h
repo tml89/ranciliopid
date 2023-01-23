@@ -58,7 +58,7 @@ enum MACHINE {
 #define VOLTAGESENSORTYPE HIGH     // BREWDETECTION 3 configuration
 #define PINMODEVOLTAGESENSOR INPUT // Mode INPUT_PULLUP, INPUT or INPUT_PULLDOWN_16 (Only Pin 16)
 #define PRESSURESENSOR 0           // 1 = pressure sensor connected to A0; PINBREWSWITCH must be set to the connected input!
-#define STATUSLED 2                  // 1 = set led pin high when brew or steam set point is within range otherwise low; 2 = vice versa
+#define STATUSLED 0                // 1 = set led pin high when brew or steam set point is within range otherwise low; 2 = vice versa
 
 // Brew Scale
 #define SCALE_SAMPLES 2                     // Load cell sample rate
