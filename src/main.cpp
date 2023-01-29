@@ -36,6 +36,7 @@
 #include "userConfig.h"         // needs to be configured by the user
 #include "defaults.h"
 #include <os.h>
+#include <FastLED.h>
 
 hw_timer_t *timer = NULL;
 
@@ -235,6 +236,14 @@ int backflushState = 10;         // counter for state machine
 // Status LED
 unsigned long statusLedInterval = 500;      // interval at which to fade (milliseconds)
 int statusLedON, statusLedOFF;              // used for status LED
+
+#define NUM_LEDS    2
+#define POWER_LED   0
+#define STATUS_LED  1
+#define BRIGHTNESS  16
+#define LED_TYPE    WS2811
+#define COLOR_ORDER GRB
+CRGB leds[NUM_LEDS];
 
 // Moving average for software brew detection
 double tempRateAverage = 0;             // average value of temp values
@@ -1349,70 +1358,55 @@ void fadeStatusLED(){
  * @brief set Status LED to maschine brew/Steam readyness
  */
 void statusLed() {
+
     if (STATUSLED <= 0) {
         return;
     } 
 
     // LED off if PID is offline
-    if (machineState == kPidOffline) {
-        digitalWrite(PIN_STATUSLED, LOW);
-        return;
+    if (machineState == kPidOffline ) {
+        leds[POWER_LED] = CRGB::Black;
+        leds[STATUS_LED] = CRGB::Black;
+    }
+    else
+    {
+        leds[POWER_LED] = CRGB::Green;
     }  
 
     // Brew ready 1 degree tolerance 
-    if ((machineState == kPidNormal|| machineState == kBrewDetectionTrailing) && (fabs(temperature - setPoint) < 1.0)) {
-        digitalWrite(PIN_STATUSLED, statusLedON);
-        return;
+    if (((machineState == kPidNormal|| machineState == kBrewDetectionTrailing) && (fabs(temperature - setPoint) < 1.0)) || 
+        ( machineState == kSteam && temperature > steamSetPoint-2 )) {
+        leds[STATUS_LED] = CRGB::Black;
     }
-
-    // Steam ready 2 degree tollerance
-    if (machineState == kSteam && temperature > steamSetPoint-2) {
-        digitalWrite(PIN_STATUSLED, statusLedON);
-        return;
+    else if (machineState != kPidOffline) {
+         //Steam || Brew not ready 
+        leds[STATUS_LED] = CRGB::Orange;
     }
-
     // Fade led on steam heating
     if (machineState == kSteam && temperature < steamSetPoint-2) {
-        statusLedInterval = 1000;
-        fadeStatusLED();
-        return;
+        // ToDo
     }
 
-    // fade led on error
-    if (machineState == kSensorError && machineState == keepromError) {
-        statusLedInterval = 500;
-        fadeStatusLED();
-        return;
-    }
-
-    // fade led fast on kEmergencyStop
-    if (machineState == kEmergencyStop) {
-        statusLedInterval = 100;
-        fadeStatusLED();
-        return;
+    // Red led on error
+    if (machineState == kSensorError || machineState == kEepromError || machineState == kEmergencyStop) {
+        leds[POWER_LED] = CRGB::Red;
+        leds[STATUS_LED] = CRGB::Red;
     }
 
     // fade in until totalBrewTime is reached
     if (machineState == kBrew ) {
         long value = 0;
+        value = (BRIGHTNESS / (totalBrewTime / 1000)) * (timeBrewed / 1000);      // take total brewtime including preinfusion
+          
 
-        // calc led brighness 
-        if (ONLYPID == 1) {
-            long value = (255 / (brewtimesoftware / 1000)) * (timeBrewed / 1000);   // take SW brewtime on onlyPID
-        } else {
-            long value = (255 / (totalBrewTime / 1000)) * (timeBrewed / 1000);      // take total brewtime including preinfusion
-        }  
-
-        if (value > 255){
-            value = 255;
+        if (value > BRIGHTNESS){
+            value = BRIGHTNESS;
         }
-
-        analogWrite(PIN_STATUSLED, value);
-        return;
+        leds[STATUS_LED] = CRGB::Blue;
+        //ToDo
     }
 
-    //Steam || Brew not ready 
-    digitalWrite(PIN_STATUSLED, statusLedOFF);
+    FastLED.show();
 }
 
 /**
@@ -1576,15 +1570,6 @@ void setup() {
         pinMode(PIN_POWERSWITCH, INPUT);
     }
 
-    // Initialize Pins
-    pinMode(PIN_VALVE, OUTPUT);
-    pinMode(PIN_PUMP, OUTPUT);
-    pinMode(PIN_HEATER, OUTPUT);
-    pinMode(PIN_STEAMSWITCH, INPUT);
-    digitalWrite(PIN_VALVE, relayOFF);
-    digitalWrite(PIN_PUMP, relayOFF);
-    digitalWrite(PIN_HEATER, LOW);
-
     // IF Voltage sensor selected
     if (BREWDETECTION == 3) {
         pinMode(PIN_BREWSWITCH, PINMODEVOLTAGESENSOR);
@@ -1609,6 +1594,10 @@ void setup() {
     #if (BREWMODE == 2 || ONLYPIDSCALE == 1)
         initScale();
     #endif
+
+    // init NeoPixel
+    FastLED.addLeds<LED_TYPE, PIN_STATUSLED, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
+    FastLED.setBrightness( BRIGHTNESS );
 
     // Fallback offline
     if (connectmode == 1) {  // WiFi Mode
