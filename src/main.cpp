@@ -1393,17 +1393,10 @@ void statusLed() {
         leds[STATUS_LED] = CRGB::Red;
     }
 
-    // fade in until totalBrewTime is reached
+    // on brew led indicates between gradient green (beginning) => red (end)
     if (machineState == kBrew ) {
-        long value = 0;
-        value = (BRIGHTNESS / (totalBrewTime / 1000)) * (timeBrewed / 1000);      // take total brewtime including preinfusion
-          
-
-        if (value > BRIGHTNESS){
-            value = BRIGHTNESS;
-        }
-        leds[STATUS_LED] = CRGB::Blue;
-        //ToDo
+         long value = (100 / totalBrewTime) * (timeBrewed / 1000);  // take total brewtime including preinfusion
+         leds[STATUS_LED].setHue((uint8_t)(85 - ((double)90 / 100) * value));
     }
 
     FastLED.show();
