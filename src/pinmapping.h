@@ -37,6 +37,7 @@
 #define PIN_VALVE 17
 #define PIN_PUMP 27
 #define PIN_HEATER 2
+#define PIN_ETRIGGER 25
 
 // LEDs
 #define PIN_POWERLED 39
