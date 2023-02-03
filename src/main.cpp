@@ -240,7 +240,7 @@ int statusLedON, statusLedOFF;              // used for status LED
 #define NUM_LEDS    2
 #define POWER_LED   0
 #define STATUS_LED  1
-#define BRIGHTNESS  16
+#define BRIGHTNESS  32
 #define LED_TYPE    WS2811
 #define COLOR_ORDER GRB
 CRGB leds[NUM_LEDS];
@@ -1367,23 +1367,29 @@ void statusLed() {
     if (machineState == kPidOffline ) {
         leds[POWER_LED] = CRGB::Black;
         leds[STATUS_LED] = CRGB::Black;
+
+        //ToDo: Find better place
+        digitalWrite(PIN_ETRIGGER, HIGH);
     }
     else
     {
         leds[POWER_LED] = CRGB::Green;
+
+        //ToDo: Find better place
+        digitalWrite(PIN_ETRIGGER, LOW);
     }  
 
     // Brew ready 1 degree tolerance 
-    if (((machineState == kPidNormal|| machineState == kBrewDetectionTrailing) && (fabs(temperature - setPoint) < 1.0)) || 
-        ( machineState == kSteam && temperature > steamSetPoint-2 )) {
+    if (((machineState == kPidNormal|| machineState == kBrewDetectionTrailing) && (fabs(temperature - setpoint) < 1.0)) || 
+        ( machineState == kSteam && temperature > steamSetpoint-2 )) {
         leds[STATUS_LED] = CRGB::Black;
     }
     else if (machineState != kPidOffline) {
          //Steam || Brew not ready 
-        leds[STATUS_LED] = CRGB::Orange;
+        leds[STATUS_LED] = CRGB::White;
     }
     // Fade led on steam heating
-    if (machineState == kSteam && temperature < steamSetPoint-2) {
+    if (machineState == kSteam && temperature < steamSetpoint-2) {
         // ToDo
     }
 
@@ -1478,6 +1484,14 @@ void websiteSetup() {
     serverSetup();
 }
 
+void InitNTP()
+{
+    Serial.println("Hole NTP Zeit");
+    struct tm local;
+    configTzTime(TZ_INFO, NTP_SERVER); // ESP32 Systemzeit mit NTP Synchronisieren
+    getLocalTime(&local, 10000);      // Versuche 10 s zu Synchronisieren
+}
+
 const char sysVersion[] = (STR(FW_VERSION) "." STR(FW_SUBVERSION) "." STR(FW_HOTFIX) " " FW_BRANCH " " AUTO_VERSION);
 
 void setup() {
@@ -1567,6 +1581,9 @@ void setup() {
     digitalWrite(PIN_PUMP, relayOFF);
     digitalWrite(PIN_HEATER, LOW);
 
+    // Initialize E-Trigger Pin
+    pinMode(PIN_ETRIGGER, OUTPUT);
+
     // IF POWERSWITCH is connected
     if (POWERSWITCHTYPE > 0) {
         pinMode(PIN_POWERSWITCH, INPUT);
@@ -1618,6 +1635,13 @@ void setup() {
             mqtt.setCallback(mqtt_callback);
             checkMQTT();
         }
+
+        esp_sleep_wakeup_cause_t wakeup_cause; // Variable für wakeup Ursache
+        setenv("TZ", TZ_INFO, 1);             // Zeitzone  muss nach dem reset neu eingestellt werden
+        tzset();
+
+        wakeup_cause = esp_sleep_get_wakeup_cause(); // wakeup Ursache holen
+        if (wakeup_cause != 3) InitNTP();     // Wenn wakeup durch Reset
 
         if (INFLUXDB == 1) {
            influxDbSetup();
@@ -1675,7 +1699,6 @@ void setup() {
 
     enableTimer1();
 }
-
 
 void loop() {
     looppid();
