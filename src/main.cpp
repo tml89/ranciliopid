@@ -1773,8 +1773,11 @@ void looppid() {
         checkPressure();
     #endif
 
-    brew();                  // start brewing if button pressed
-    checkSteamON();          // check for steam
+    // only check brew or steamSW if PID is on
+    if (machineState != kPidOffline){
+        brew();                  // start brewing if button pressed
+        checkSteamON();          // check for steam
+    }
     setEmergencyStopTemp();
     checkpowerswitch();
     handleMachineState();      // update machineState
