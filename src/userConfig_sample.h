@@ -43,6 +43,16 @@ enum MACHINE {
 
 #define LANGUAGE 0                 // LANGUAGE = 0 (DE), LANGUAGE = 1 (EN), LANGUAGE = 2 (ES)
 
+// NTP
+#define NTP_SERVER "de.pool.ntp.org"
+#define TZ_INFO "WEST-1DWEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00" // Western European Time
+
+// DeepSleep Config
+#define SLEEPNIGHT 1
+#define uS_TO_S_FACTOR 1000000ULL
+const unsigned int dndStartH = 21;
+const unsigned int dndEndH = 5;
+
 // Connectivity
 #define CONNECTMODE 1              // 0 = offline 1 = WIFI-MODE
 #define HOSTNAME "silvia"
@@ -105,4 +115,3 @@ enum MACHINE {
 #define BREWPID_DELAY 10           // delay until enabling PID controller during brew (no heating during this time)
 
 #define TEMPSENSOR 2               // Temp sensor type: 1 = DS18B20, 2 = TSIC306
-

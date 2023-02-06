@@ -159,6 +159,7 @@ char *number2string(unsigned int in);
 float filterPressureValue(float input);
 bool mqtt_publish(const char *reading, char *payload);
 void writeSysParamsToMQTT(void);
+void DeepSleepHandler(void);
 
 
 // system parameters
@@ -1346,6 +1347,14 @@ void debugVerboseOutput() {
 }
 
 /**
+ * @brief turn neopixel off
+ */
+void Led_Exit(void) {
+		FastLED.clear();
+		FastLED.show();
+}
+
+/**
  * @brief fade LED to intervall
  */
 void fadeStatusLED(){
@@ -1479,7 +1488,7 @@ void websiteSetup() {
 
 void InitNTP()
 {
-    Serial.println("Hole NTP Zeit");
+    debugPrintln("Get NTP time");
     struct tm local;
     configTzTime(TZ_INFO, NTP_SERVER); // ESP32 Systemzeit mit NTP Synchronisieren
     getLocalTime(&local, 10000);      // Versuche 10 s zu Synchronisieren
@@ -1628,14 +1637,7 @@ void setup() {
             mqtt.setCallback(mqtt_callback);
             checkMQTT();
         }
-
-        esp_sleep_wakeup_cause_t wakeup_cause; // Variable für wakeup Ursache
-        setenv("TZ", TZ_INFO, 1);             // Zeitzone  muss nach dem reset neu eingestellt werden
-        tzset();
-
-        wakeup_cause = esp_sleep_get_wakeup_cause(); // wakeup Ursache holen
-        if (wakeup_cause != 3) InitNTP();     // Wenn wakeup durch Reset
-
+        
         if (INFLUXDB == 1) {
            influxDbSetup();
         }
@@ -1688,16 +1690,58 @@ void setup() {
         previousMillisPressure = currentTime;
     #endif
 
+    setenv("TZ", TZ_INFO, 1);             // Zeitzone muss nach dem reset neu eingestellt werden
+    tzset();
+    
+    // init NTP after reset
+    if (WiFi.status() == WL_CONNECTED) {
+        InitNTP();         
+    }
+    
+    esp_sleep_wakeup_cause_t wakeup_cause = esp_sleep_get_wakeup_cause(); // get wakeup cause
+    
+    // wakeup by powerswitch - Set PID on
+    if (wakeup_cause == ESP_SLEEP_WAKEUP_EXT0)
+    {
+        setPidStatus(1);
+    }
+
     setupDone = true;
 
     enableTimer1();
 }
 
+void DeepSleepHandler(){
+    // check if sleep time is reached - only if PID is off
+    if ( SLEEPNIGHT == 0 || pidON == 1 ){
+        return;
+    }
+
+    // try to get local time
+    tm local;
+    if (!getLocalTime(&local)) {
+        debugPrintln("Failed to obtain time");
+        return;
+    }
+    int hour = local.tm_hour;
+    if (hour >= dndStartH) {
+        
+        //clear LED
+        Led_Exit();
+        
+        int sleepTime = (24 - hour + dndEndH) * 3600;
+        debugPrintf("Sleeptimr reached, sleep: %i seconds\n", sleepTime);
+        esp_sleep_enable_timer_wakeup(sleepTime * uS_TO_S_FACTOR); // wake up at dndEnd
+        esp_sleep_enable_ext0_wakeup(GPIO_NUM_26,1); // wake up if powerButton is pressed
+        esp_deep_sleep_start();    
+    }        
+}
+
 void loop() {
     looppid();
     checkForRemoteSerialClients();
+    DeepSleepHandler();
 }
-
 
 void looppid() {
     // Only do Wifi stuff, if Wifi is connected
