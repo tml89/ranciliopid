@@ -1410,8 +1410,8 @@ void statusLed() {
 
     // on brew led indicates between gradient green (beginning) => red (end)
     if (machineState == kBrew ) {
-         long value = (100 / totalBrewTime) * (timeBrewed / 1000);  // take total brewtime including preinfusion
-         leds[STATUS_LED].setHue((uint8_t)(85 - ((double)90 / 100) * value));
+         long value =  (timeBrewed / 1000) / (1000 / totalBrewTime);  // take total brewtime including preinfusion
+         leds[POWER_LED].setHue((uint8_t)85 - (90  * value));
     }
 
     FastLED.show();
