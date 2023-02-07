@@ -2080,13 +2080,15 @@ void DeepSleepHandler(){
         return;
     }
     int hour = local.tm_hour;
+    int min = local.tm_min;
     if (hour >= dndStartH) {
         
         //clear LED
         Led_Exit();
         
-        int sleepTime = (24 - hour + dndEndH) * 3600;
-        debugPrintf("Sleeptimr reached, sleep: %i seconds\n", sleepTime);
+        int sleepTime = (24 - hour + dndEndH) * 3600 - (min * 60);
+        debugPrintf("Sleeptime reached, sleep: %i seconds\n", sleepTime);
+        delay(500);
         esp_sleep_enable_timer_wakeup(sleepTime * uS_TO_S_FACTOR); // wake up at dndEnd
         esp_sleep_enable_ext0_wakeup(GPIO_NUM_26,1); // wake up if powerButton is pressed
         esp_deep_sleep_start();    
