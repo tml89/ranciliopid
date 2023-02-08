@@ -1380,6 +1380,7 @@ void statusLed() {
         leds[STATUS_LED] = CRGB::Black;
 
         //ToDo: Find better place
+        //turn on shot light
         digitalWrite(PIN_ETRIGGER, HIGH);
     }
     else
@@ -1387,10 +1388,11 @@ void statusLed() {
         leds[POWER_LED] = CRGB::Green;
 
         //ToDo: Find better place
+        //turn off shot light
         digitalWrite(PIN_ETRIGGER, LOW);
     }  
 
-    // Brew ready 1 degree tolerance 
+    // Brew or steam ready 1 degree tolerance 
     if (((machineState == kPidNormal|| machineState == kBrewDetectionTrailing) && (fabs(temperature - setpoint) < 1.0)) || 
         ( machineState == kSteam && temperature > steamSetpoint-2 )) {
         leds[STATUS_LED] = CRGB::Black;
@@ -1402,6 +1404,11 @@ void statusLed() {
     // Fade led on steam heating
     if (machineState == kSteam && temperature < steamSetpoint-2) {
         // ToDo
+    }
+
+    // Set Power LED to steam
+    if (machineState == kSteam) {
+       leds[POWER_LED] = CRGB::Blue;
     }
 
     // Red led on error
