@@ -160,6 +160,7 @@ float filterPressureValue(float input);
 bool mqtt_publish(const char *reading, char *payload);
 void writeSysParamsToMQTT(void);
 void DeepSleepHandler(void);
+void standbyHandler(void);
 
 
 // system parameters
@@ -248,6 +249,9 @@ int statusLedON, statusLedOFF;              // used for status LED
 #define COLOR_ORDER GRB
 CRGB leds[NUM_LEDS];
 
+// StandbyTimer
+unsigned long LastTimeActiveTimestamp;    // initialisation at the end of init()
+ 
 // Moving average for software brew detection
 double tempRateAverage = 0;             // average value of temp values
 double tempChangeRateAverageMin = 0;
@@ -1293,6 +1297,7 @@ void handleMachineState() {
     if (machineState != lastmachinestate) {
         printMachineState();
         lastmachinestate = machineState;
+        LastTimeActiveTimestamp = millis(); // reset standby timer
     }
 }
 
@@ -2045,6 +2050,7 @@ void setup() {
     previousMillisInflux = currentTime;
     previousMillisVoltagesensorreading = currentTime;
     lastMQTTConnectionAttempt = currentTime;
+    LastTimeActiveTimestamp = currentTime;
 
     #if (BREWMODE == 2)
         previousMillisScale = currentTime;
@@ -2105,10 +2111,19 @@ void DeepSleepHandler(){
     }        
 }
 
+// Sets deep-sleep-flag if max. inactivity-time is reached
+void standbyHandler(void) {
+	unsigned long m = millis();
+	if (m >= LastTimeActiveTimestamp && (m - LastTimeActiveTimestamp >= (MaxInactivityTime * 1000u * 60u))) {
+		setPidStatus(0);
+	}
+}
+
 void loop() {
     looppid();
     checkForRemoteSerialClients();
     DeepSleepHandler();
+    standbyHandler();
 }
 
 void looppid() {
