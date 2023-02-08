@@ -2056,11 +2056,12 @@ void setup() {
     
     esp_sleep_wakeup_cause_t wakeup_cause = esp_sleep_get_wakeup_cause(); // get wakeup cause
     
+    //currently deactivate due auto wakeups *ToDo 
     // wakeup by powerswitch - Set PID on
-    if (wakeup_cause == ESP_SLEEP_WAKEUP_EXT0)
+    /*if (wakeup_cause == ESP_SLEEP_WAKEUP_EXT0)
     {
         setPidStatus(1);
-    }
+    }*/
 
     setupDone = true;
 
@@ -2088,9 +2089,11 @@ void DeepSleepHandler(){
         
         int sleepTime = (24 - hour + dndEndH) * 3600 - (min * 60);
         debugPrintf("Sleeptime reached, sleep: %i seconds\n", sleepTime);
-        delay(500);
         esp_sleep_enable_timer_wakeup(sleepTime * uS_TO_S_FACTOR); // wake up at dndEnd
-        esp_sleep_enable_ext0_wakeup(GPIO_NUM_26,1); // wake up if powerButton is pressed
+        
+        //currently deactivate due auto wakeups *ToDo  
+        //esp_sleep_enable_ext0_wakeup(GPIO_NUM_26,1); // wake up if powerButton is pressed
+        
         esp_deep_sleep_start();    
     }        
 }
