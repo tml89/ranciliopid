@@ -54,7 +54,7 @@ const unsigned int dndStartH = 21;
 const unsigned int dndEndH = 5;
 
 // Standby Timer
-#define MaxInactivityTime = 30     // max inactivity time in minutes
+#define MaxInactivityTime 30     // max inactivity time in minutes
 
 // Connectivity
 #define CONNECTMODE 1              // 0 = offline 1 = WIFI-MODE
