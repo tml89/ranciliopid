@@ -1388,7 +1388,7 @@ void statusLed() {
         //turn on shot light
         digitalWrite(PIN_ETRIGGER, HIGH);
     }
-    else
+    else // Brew Mode 
     {
         leds[POWER_LED] = CRGB::Green;
 
@@ -1396,6 +1396,11 @@ void statusLed() {
         //turn off shot light
         digitalWrite(PIN_ETRIGGER, LOW);
     }  
+
+    // Set Power LED to steam
+    if (machineState == kSteam) {
+       leds[POWER_LED] = CRGB::OrangeRed;
+    }
 
     // Brew or steam ready 1 degree tolerance 
     if (((machineState == kPidNormal|| machineState == kBrewDetectionTrailing) && (fabs(temperature - setpoint) < 1.0)) || 
@@ -1406,14 +1411,16 @@ void statusLed() {
          //Steam || Brew not ready 
         leds[STATUS_LED] = CRGB::White;
     }
+
     // Fade led on steam heating
     if (machineState == kSteam && temperature < steamSetpoint-2) {
         // ToDo
     }
 
-    // Set Power LED to steam
-    if (machineState == kSteam) {
-       leds[POWER_LED] = CRGB::Blue;
+    // Set Power and status LED to backflush
+    if (machineState == kBackflush) {
+       leds[POWER_LED] = CRGB::Teal;
+       leds[STATUS_LED] = CRGB::Black;
     }
 
     // Red led on error
@@ -2073,7 +2080,7 @@ void setup() {
     // wakeup by powerswitch - Set PID on
     /*if (wakeup_cause == ESP_SLEEP_WAKEUP_EXT0)
     {
-        setPidStatus(1);
+        pidOn = 1;
     }*/
 
     setupDone = true;
@@ -2111,11 +2118,11 @@ void DeepSleepHandler(){
     }        
 }
 
-// Sets PIF off if max. inactivity-time is reached
+// Sets PID off if max. inactivity-time is reached
 void standbyHandler(void) {
 	unsigned long m = millis();
 	if (machineState != kPidOffline && m >= LastTimeActiveTimestamp && (m - LastTimeActiveTimestamp >= (MaxInactivityTime * 1000u * 60u))) {
-		setPidStatus(0);
+		pidON = 0;
 	}
 }
 
