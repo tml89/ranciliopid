@@ -2111,10 +2111,10 @@ void DeepSleepHandler(){
     }        
 }
 
-// Sets deep-sleep-flag if max. inactivity-time is reached
+// Sets PIF off if max. inactivity-time is reached
 void standbyHandler(void) {
 	unsigned long m = millis();
-	if (m >= LastTimeActiveTimestamp && (m - LastTimeActiveTimestamp >= (MaxInactivityTime * 1000u * 60u))) {
+	if (machineState != kPidOffline && m >= LastTimeActiveTimestamp && (m - LastTimeActiveTimestamp >= (MaxInactivityTime * 1000u * 60u))) {
 		setPidStatus(0);
 	}
 }
