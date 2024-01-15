@@ -240,7 +240,7 @@ int backflushON = 0;             // 1 = backflush mode active
 int flushCycles = 0;             // number of active flush cycles
 int backflushState = 10;         // counter for state machine
 
-// Status LED
+// Power and Status LED
 unsigned long statusLedInterval = 500;      // interval at which to fade (milliseconds)
 int statusLedON, statusLedOFF;              // used for status LED
 
@@ -251,6 +251,14 @@ int statusLedON, statusLedOFF;              // used for status LED
 #define LED_TYPE    WS2811
 #define COLOR_ORDER GRB
 CRGB leds[NUM_LEDS];
+
+// Tassenbeleuchtung
+#define NUM_LEDS_CUP    6
+#define BRIGHTNESS_CUP  64
+#define LED_TYPE_CUP    WS2812
+#define COLOR_ORDER_CUP GRB
+CRGB CupLeds[NUM_LEDS_CUP];
+
 
 // StandbyTimer
 unsigned long LastTimeActiveTimestamp;    // initialisation at the end of init()
@@ -1346,6 +1354,14 @@ void debugVerboseOutput() {
     }
 }
 
+void setCupLight(int iColor)
+{
+    for (size_t i = 0; i < NUM_LEDS_CUP; i++)
+    {
+        CupLeds[i] = iColor;
+    }
+}
+
 /**
  * @brief turn neopixel off
  */
@@ -1374,20 +1390,13 @@ void statusLed() {
 
     // LED off if PID is offline
     if (machineState == kPidOffline ) {
-        leds[POWER_LED] = CRGB::Black;
-        leds[STATUS_LED] = CRGB::Black;
-
-        //ToDo: Find better place
-        //turn on shot light
-        digitalWrite(PIN_ETRIGGER, HIGH);
+        // Turn power- status and cup leds of 
+        Led_Exit();
     }
-    else // Brew Mode 
+    else // Brew Mode = PID On
     {
         leds[POWER_LED] = CRGB::Green;
-
-        //ToDo: Find better place
-        //turn off shot light
-        digitalWrite(PIN_ETRIGGER, LOW);
+        setCupLight(0xFF9329);
     }  
 
     // Set Power LED to steam
@@ -1428,6 +1437,8 @@ void statusLed() {
          leds[STATUS_LED].setHue((uint8_t)85 - (90  * value));
     }
 
+    leds[POWER_LED].fadeToBlackBy(255-BRIGHTNESS);
+    leds[STATUS_LED].fadeToBlackBy(255-BRIGHTNESS);
     FastLED.show();
 }
 
@@ -2041,9 +2052,16 @@ void setup() {
         initScale();
     #endif
 
-    // init NeoPixel
-    FastLED.addLeds<LED_TYPE, PIN_STATUSLED, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
-    FastLED.setBrightness( BRIGHTNESS );
+    // init Power and Status
+    //FastLED.addLeds<LED_TYPE, PIN_STATUSLED, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
+
+    // init Cup LED
+    //FastLED.addLeds<LED_TYPE_CUP, PIN_CUPLED, COLOR_ORDER>(CupLeds, NUM_LEDS, NUM_LEDS_CUP);
+
+    FastLED.addLeds<NEOPIXEL, PIN_STATUSLED>(leds, NUM_LEDS);
+    FastLED.addLeds<NEOPIXEL, PIN_CUPLED>(CupLeds, NUM_LEDS_CUP);
+
+    //FastLED.setBrightness( BRIGHTNESS );
 
     // Fallback offline
     if (connectmode == 1) {  // WiFi Mode
