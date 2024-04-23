@@ -255,7 +255,7 @@ CRGB leds[NUM_LEDS];
 CRGB CupLeds[NUM_LEDS_CUP];
 
 // LastLEDShowTimestamp
-unsigned long LastLEDShowTimestamp; 
+unsigned long LastLEDShowTimestamp;
 
 // StandbyTimer
 unsigned long LastTimeActiveTimestamp; // initialisation at the end of init()
@@ -1477,7 +1477,7 @@ void handleMachineState()
         printMachineState();
 
         lastmachinestate = machineState;
-        LastTimeActiveTimestamp = millis(); // reset standby timer        
+        LastTimeActiveTimestamp = millis(); // reset standby timer
     }
 }
 
@@ -1555,13 +1555,13 @@ void setCupLight(int r, int g, int b)
     }
 }
 
-void ShowLED(){ 
+void ShowLED(){
     unsigned long currentMillis = millis();
-    if (currentMillis - LastLEDShowTimestamp  >= 250 )
+    if (currentMillis - LastLEDShowTimestamp  >= 350  && machineState != kBrew) // if brew is broken try to not update LED on brew
     {
          FastLED.show();
          LastLEDShowTimestamp = currentMillis;
-    }    
+    }
 }
 
 /**
@@ -1570,7 +1570,7 @@ void ShowLED(){
 void Led_Exit(void)
 {
     FastLED.clear();
-    FastLED.show();
+    ShowLED();
 }
 
 /**
@@ -1616,12 +1616,12 @@ void Led_loop()
     }
 
     // check brew / steam ready
-    if (((machineState == kPidNormal || machineState == kBrewDetectionTrailing) && 
+    if (((machineState == kPidNormal || machineState == kBrewDetectionTrailing) &&
          (fabs(temperature - setpoint) < 1.0)) ||
         (machineState == kSteam && temperature > steamSetpoint - 2))
     {
          leds[STATUS_LED] = CRGB::Black;
-    }    
+    }
     else
     {
         leds[STATUS_LED] = CRGB::White;
@@ -1643,11 +1643,11 @@ void Led_loop()
 
     leds[POWER_LED].fadeToBlackBy(255 - BRIGHTNESS);
     leds[STATUS_LED].fadeToBlackBy(255 - BRIGHTNESS);
-    
+
     FastLED.setTemperature(Candle);
 
     ShowLED();
-    
+
 }
 
 /**
@@ -2571,7 +2571,7 @@ void looppid()
     setEmergencyStopTemp();
     checkpowerswitch();
     handleMachineState(); // update machineState
-    Led_loop();   
+    Led_loop();
 
     if (INFLUXDB == 1 && offlineMode == 0)
     {
