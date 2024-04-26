@@ -23,6 +23,7 @@
 #include <U8g2lib.h> // i2c display
 #include <WiFiManager.h>
 #include <os.h>
+#include <FastLED.h>
 
 // Includes
 #include "display/bitmaps.h" // user icons for display
@@ -157,6 +158,20 @@ GPIOPin* brewLedPin;
 
 LED* statusLed;
 LED* brewLed;
+
+// Power and Status LED
+#define NUM_LEDS 2
+#define POWER_LED 0
+#define STATUS_LED 1
+#define BRIGHTNESS 32
+CRGB leds[NUM_LEDS];
+
+// Tassenbeleuchtung
+#define NUM_LEDS_CUP 6
+CRGB CupLeds[NUM_LEDS_CUP];
+
+// LastLEDShowTimestamp
+unsigned long LastLEDShowTimestamp;
 
 GPIOPin heaterRelayPin(PIN_HEATER, GPIOPin::OUT);
 Relay heaterRelay(heaterRelayPin, HEATER_SSR_TYPE);
@@ -1819,8 +1834,10 @@ void setup() {
         statusLed = new StandardLED(*statusLedPin);
         brewLed = new StandardLED(*brewLedPin);
     }
-    else {
-        // TODO Addressable LEDs
+    else if (LED_TYPE == LED::WS2812){
+
+        FastLED.addLeds<NEOPIXEL, PIN_STATUSLED>(leds, NUM_LEDS);
+        FastLED.addLeds<NEOPIXEL, PIN_CUPLED>(CupLeds, NUM_LEDS_CUP);
     }
 
     if (FEATURE_WATER_SENS == 1) {
@@ -1896,6 +1913,7 @@ void setup() {
     previousMillisMQTT = currentTime;
     previousMillisOptocouplerReading = currentTime;
     lastMQTTConnectionAttempt = currentTime;
+    LastLEDShowTimestamp = currentTime;
 
 #if FEATURE_SCALE == 1
     previousMillisScale = currentTime;
@@ -2153,24 +2171,117 @@ void looppid() {
     // sensor error OR Emergency Stop
 }
 
-void loopLED() {
-    if (FEATURE_STATUS_LED) {
-        if ((machineState == kPidNormal && (fabs(temperature - setpoint) < 0.3)) || (temperature > 115 && fabs(temperature - setpoint) < 5)) {
-            statusLed->turnOn();
-        }
-        else {
-            statusLed->turnOff();
-        }
+void setCupLight(int iColor)
+{
+    for (size_t i = 0; i < NUM_LEDS_CUP; i++)
+    {
+        CupLeds[i] = iColor;
+    }
+}
+
+void setCupLight(int r, int g, int b)
+{
+    for (size_t i = 0; i < NUM_LEDS_CUP; i++)
+    {
+        CupLeds[i].r = r;
+        CupLeds[i].g = g;
+        CupLeds[i].b = b;
+    }
+}
+
+void ShowLED(){
+    unsigned long currentMillis = millis();
+    if (currentMillis - LastLEDShowTimestamp  >= 350  && machineState != kBrew) // if brew is broken try to not update LED on brew
+    {
+         FastLED.show();
+         LastLEDShowTimestamp = currentMillis;
+    }
+}
+
+/**
+ * @brief turn neopixel off
+ */
+void Led_Exit(void)
+{
+    FastLED.clear();
+    ShowLED();
+}
+
+/**
+ * @brief set Status LED to maschine brew/Steam readyness
+ */
+void loopLED()
+{
+    if (FEATURE_BREW_LED <= 0)
+    {
+        return;
     }
 
-    if (FEATURE_BREW_LED) {
-        if (machineState == kBrew) {
-            brewLed->turnOn();
-        }
-        else {
-            brewLed->turnOff();
-        }
+    // LED off if PID is offline
+    if (pidON == 0 )// == kStandby || machineState == kPidDisabled )
+    {
+        // Turn power- status and cup leds off
+        Led_Exit();
+        return;
     }
+    else // Brew Mode = PID On
+    {
+        leds[POWER_LED] = CRGB::Green;
+        setCupLight(CRGB::White);
+    }
+
+    // Set Power LED to steam
+    if (machineState == kSteam)
+    {
+        leds[POWER_LED] = CRGB::OrangeRed;
+    }
+
+    // Fade led on steam heating
+    if (machineState == kSteam && temperature < steamSetpoint - 2)
+    {
+        //ToDo
+    }
+
+    // Set Power and status LED to backflush
+    if (machineState == kBackflush)
+    {
+        leds[POWER_LED] = CRGB::Teal;
+        leds[STATUS_LED] = CRGB::Black;
+    }
+
+    // check brew / steam ready
+    if (((machineState == kPidNormal || machineState == kBrewDetectionTrailing) &&
+         (fabs(temperature - setpoint) < 1.0)) ||
+        (machineState == kSteam && temperature > steamSetpoint - 2))
+    {
+         leds[STATUS_LED] = CRGB::Black;
+    }
+    else
+    {
+        leds[STATUS_LED] = CRGB::White;
+    }
+
+    // Red led on error
+    if (machineState == kSensorError || machineState == kEepromError || machineState == kEmergencyStop)
+    {
+        leds[POWER_LED] = CRGB::Red;
+        leds[STATUS_LED] = CRGB::Red;
+    }
+
+    // on brew led indicates between gradient green (beginning) => red (end)
+    if (machineState == kBrew)
+    {
+        double value = (double)timeBrewed / (double)totalBrewTime; // take total brewtime including preinfusion
+        leds[STATUS_LED].setHue((uint8_t)85 - (90 * value));
+    }
+
+    leds[POWER_LED].fadeToBlackBy(255 - BRIGHTNESS);
+    leds[STATUS_LED].fadeToBlackBy(255 - BRIGHTNESS);
+
+    FastLED.setTemperature(Candle);
+
+    ShowLED();
+
 }
 
 void checkWater() {

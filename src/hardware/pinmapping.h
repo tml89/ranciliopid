@@ -12,7 +12,7 @@
  */
 
 // Switches/Buttons
-#define PIN_POWERSWITCH 39
+#define PIN_POWERSWITCH 26
 #define PIN_BREWSWITCH  34
 #define PIN_STEAMSWITCH 35
 #define PIN_WATERSWITCH 36
@@ -38,9 +38,14 @@
 #define PIN_HEATER 2
 
 // LEDs
-#define PIN_STATUSLED 26
+//#define PIN_STATUSLED 26
 #define PIN_BREWLED   19
 #define PIN_STEAMLED  1
+
+//NeoPixel
+#define PIN_POWERLED 39
+#define PIN_STATUSLED 1
+#define PIN_CUPLED 25
 
 // Periphery
 #define PIN_ZC 18 // Dimmer circuit Zero Crossing
