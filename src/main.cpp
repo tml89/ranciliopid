@@ -1165,6 +1165,10 @@ void handleMachineState() {
             if (pidON == 1) {
                 // Enter regular PID operations
                 machineState = kPidNormal;
+
+                if (standbyModeOn) {
+                    resetStandbyTimer();
+                }
             }
 
             if (!waterFull) {
