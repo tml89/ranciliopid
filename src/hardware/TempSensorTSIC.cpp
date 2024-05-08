@@ -5,6 +5,7 @@
  */
 
 #include "TempSensorTSIC.h"
+#include "Logger.h"
 
 #define MAX_CHANGERATE 15
 
@@ -15,6 +16,18 @@ TempSensorTSIC::TempSensorTSIC(int GPIOPin) {
     tsicSensor_->begin();
 }
 
-float TempSensorTSIC::getTemperatureCelsius() const {
-    return tsicSensor_->getTemp(MAX_CHANGERATE);
+bool TempSensorTSIC::sample_temperature(double& temperature) const {
+    auto temp = tsicSensor_->getTemp(MAX_CHANGERATE);
+
+    if (temp == 222) {
+        LOG(WARNING, "Temperature reading failed");
+        return false;
+    }
+    else if (temp == 221) {
+        LOG(WARNING, "Temperature sensor not connected");
+        return false;
+    }
+
+    temperature = temp;
+    return true;
 }

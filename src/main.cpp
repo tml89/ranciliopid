@@ -308,16 +308,8 @@ int waterCheckConsecutiveReads = 0; // Counter for consecutive readings of water
 const int waterCountsNeeded = 3;    // Number of same readings to change water sensing
 
 // Moving average for software brew detection
-double tempRateAverage = 0;            // average value of temp values
-double tempChangeRateAverageMin = 0;
 unsigned long timeBrewDetection = 0;
-int isBrewDetected = 0;                // flag is set if brew was detected
-bool movingAverageInitialized = false; // flag set when average filter is initialized, also used for sensor check
-
-// Sensor check
-boolean sensorError = false;
-int error = 0;
-int maxErrorCounter = 10; // depends on intervaltempmes* , define max seconds for invalid data
+int isBrewDetected = 0; // flag is set if brew was detected
 
 // PID controller
 unsigned long previousMillistemp; // initialisation at the end of init()
@@ -348,7 +340,7 @@ PID bPID(&temperature, &pidOutput, &setpoint, aggKp, aggKi, aggKd, 1, DIRECT);
 
 #include "brewHandler.h"
 
-Timer logbrew([&]() { LOGF(DEBUG, "(tB,T,hra) --> %5.2f %6.2f %8.2f", (double)(millis() - startingTime) / 1000, temperature, tempRateAverage); }, 500);
+Timer logbrew([&]() { LOGF(DEBUG, "(tB,T,hra) --> %5.2f %6.2f %8.2f", (double)(millis() - startingTime) / 1000, temperature, tempSensor->getAverageTemperatureRate()); }, 500);
 
 // Embedded HTTP Server
 #include "embeddedWebserver.h"
@@ -467,126 +459,6 @@ void testEmergencyStop() {
     }
     else if (temperature < (brewSetpoint + 5) && emergencyStop == true) {
         emergencyStop = false;
-    }
-}
-
-/**
- * @brief FIR moving average filter for software brew detection
- */
-void calculateTemperatureMovingAverage() {
-    const int numValues = 15;                   // moving average filter length
-    static double tempValues[numValues];        // array of temp values
-    static unsigned long timeValues[numValues]; // array of time values
-    static double tempChangeRates[numValues];
-    static int valueIndex = 1;                  // the index of the current value
-
-    if (brewDetectionMode == 1 && !movingAverageInitialized) {
-        for (int index = 0; index < numValues; index++) {
-            tempValues[index] = temperature;
-            timeValues[index] = 0;
-            tempChangeRates[index] = 0;
-        }
-
-        movingAverageInitialized = true;
-    }
-
-    timeValues[valueIndex] = millis();
-    tempValues[valueIndex] = temperature;
-
-    // local change rate of temperature
-    double tempChangeRate = 0;
-
-    if (valueIndex == numValues - 1) {
-        tempChangeRate = (tempValues[numValues - 1] - tempValues[0]) / (timeValues[numValues - 1] - timeValues[0]) * 10000;
-    }
-    else {
-        tempChangeRate = (tempValues[valueIndex] - tempValues[valueIndex + 1]) / (timeValues[valueIndex] - timeValues[valueIndex + 1]) * 10000;
-    }
-
-    tempChangeRates[valueIndex] = tempChangeRate;
-
-    double totalTempChangeRateSum = 0;
-
-    for (int i = 0; i < numValues; i++) {
-        totalTempChangeRateSum += tempChangeRates[i];
-    }
-
-    tempRateAverage = totalTempChangeRateSum / numValues * 100;
-
-    if (tempRateAverage < tempChangeRateAverageMin) {
-        tempChangeRateAverageMin = tempRateAverage;
-    }
-
-    if (valueIndex >= numValues - 1) {
-        // ...wrap around to the beginning:
-        valueIndex = 0;
-    }
-    else {
-        valueIndex++;
-    }
-}
-
-/**
- * @brief check sensor value.
- * @return If < 0 or difference between old and new >25, then increase error.
- *      If error is equal to maxErrorCounter, then set sensorError
- */
-boolean checkSensor(float tempInput) {
-    boolean sensorOK = false;
-    boolean badCondition = (tempInput < 0 || tempInput > 150 || fabs(tempInput - previousInput) > (5 + brewTempOffset));
-
-    if (badCondition && !sensorError) {
-        error++;
-        sensorOK = false;
-
-        LOGF(WARNING, "temperature sensor reading: consec_errors = %i, temp_current = %.1f, temp_prev = %.1f", error, tempInput, previousInput);
-    }
-    else if (badCondition == false && sensorOK == false) {
-        error = 0;
-        sensorOK = true;
-    }
-
-    if (error >= maxErrorCounter && !sensorError) {
-        sensorError = true;
-        LOGF(ERROR, "temperature sensor malfunction: temp_current = %.1f", tempInput);
-    }
-    else if (error == 0 && sensorError) {
-        sensorError = false;
-    }
-
-    return sensorOK;
-}
-
-/**
- * @brief Refresh temperature.
- *      Each time checkSensor() is called to verify the value.
- *      If the value is not valid, new data is not stored.
- */
-void refreshTemp() {
-    unsigned long currentMillisTemp = millis();
-    previousInput = temperature;
-
-    if (currentMillisTemp - previousMillistemp >= tempSensor->getSamplingInterval()) {
-        previousMillistemp = currentMillisTemp;
-
-        temperature = tempSensor->getTemperatureCelsius();
-
-        if (machineState != kSteam) {
-            temperature -= brewTempOffset;
-        }
-
-        if (!checkSensor(temperature) && movingAverageInitialized) {
-            temperature = previousInput;
-            return; // if sensor data is not valid, abort function; Sensor must
-                    // be read at least one time at system startup
-        }
-
-        if (brewDetectionMode == 1) {
-            calculateTemperatureMovingAverage();
-        }
-        else if (!movingAverageInitialized) {
-            movingAverageInitialized = true;
-        }
     }
 }
 
@@ -734,7 +606,7 @@ void brewDetection() {
     // Activate brew detection
     if (brewDetectionMode == 1) { // SW BD
         // BD PID only +/- 4 °C, no detection if HW was active
-        if (tempRateAverage <= -brewSensitivity && isBrewDetected == 0 && (fabs(temperature - brewSetpoint) < 5)) {
+        if (tempSensor->getAverageTemperatureRate() <= -brewSensitivity && isBrewDetected == 0 && (fabs(temperature - brewSetpoint) < 5)) {
             LOG(DEBUG, "SW Brew detected");
             timeBrewDetection = millis();
             isBrewDetected = 1;
@@ -870,7 +742,7 @@ void handleMachineState() {
                 machineState = kWaterEmpty;
             }
 
-            if (sensorError) {
+            if (tempSensor->hasError()) {
                 machineState = kSensorError;
             }
 
@@ -927,7 +799,7 @@ void handleMachineState() {
                 machineState = kWaterEmpty;
             }
 
-            if (sensorError) {
+            if (tempSensor->hasError()) {
                 machineState = kSensorError;
             }
 
@@ -965,7 +837,7 @@ void handleMachineState() {
                 machineState = kPidDisabled;
             }
 
-            if (sensorError) {
+            if (tempSensor->hasError()) {
                 machineState = kSensorError;
             }
             break;
@@ -999,7 +871,7 @@ void handleMachineState() {
                 machineState = kWaterEmpty;
             }
 
-            if (sensorError) {
+            if (tempSensor->hasError()) {
                 machineState = kSensorError;
             }
             break;
@@ -1036,7 +908,7 @@ void handleMachineState() {
                 machineState = kWaterEmpty;
             }
 
-            if (sensorError) {
+            if (tempSensor->hasError()) {
                 machineState = kSensorError;
             }
             break;
@@ -1062,7 +934,7 @@ void handleMachineState() {
                 machineState = kWaterEmpty;
             }
 
-            if (sensorError) {
+            if (tempSensor->hasError()) {
                 machineState = kSensorError;
             }
             break;
@@ -1077,7 +949,7 @@ void handleMachineState() {
 
             if (brewDetectionMode == 1 && BREWCONTROL_TYPE == 0) {
                 // if machine cooled down to 2°C above setpoint, enabled PID again
-                if (tempRateAverage > 0 && temperature < brewSetpoint + 2) {
+                if (tempSensor->getAverageTemperatureRate() > 0 && temperature < brewSetpoint + 2) {
                     machineState = kPidNormal;
                 }
             }
@@ -1106,7 +978,7 @@ void handleMachineState() {
                 machineState = kWaterEmpty;
             }
 
-            if (sensorError) {
+            if (tempSensor->hasError()) {
                 machineState = kSensorError;
             }
             break;
@@ -1128,7 +1000,7 @@ void handleMachineState() {
                 machineState = kWaterEmpty;
             }
 
-            if (sensorError) {
+            if (tempSensor->hasError()) {
                 machineState = kSensorError;
             }
             break;
@@ -1142,7 +1014,7 @@ void handleMachineState() {
                 machineState = kPidDisabled;
             }
 
-            if (sensorError) {
+            if (tempSensor->hasError()) {
                 machineState = kSensorError;
             }
             break;
@@ -1156,7 +1028,7 @@ void handleMachineState() {
                 machineState = kPidDisabled;
             }
 
-            if (sensorError) {
+            if (tempSensor->hasError()) {
                 machineState = kSensorError;
             }
             break;
@@ -1175,7 +1047,7 @@ void handleMachineState() {
                 machineState = kWaterEmpty;
             }
 
-            if (sensorError) {
+            if (tempSensor->hasError()) {
                 machineState = kSensorError;
             }
 
@@ -1208,7 +1080,7 @@ void handleMachineState() {
                 }
             }
 
-            if (sensorError) {
+            if (tempSensor->hasError()) {
                 machineState = kSensorError;
             }
             break;
@@ -1886,6 +1758,10 @@ void setup() {
         pidON = 1;                  // pid on
     }
 
+    // Start the logger
+    Logger::begin();
+    Logger::setLevel(LOGLEVEL);
+
     // Initialize PID controller
     bPID.SetSampleTime(windowSize);
     bPID.SetOutputLimits(0, windowSize);
@@ -1900,7 +1776,7 @@ void setup() {
         tempSensor = new TempSensorTSIC(PIN_TEMPSENSOR);
     }
 
-    temperature = tempSensor->getTemperatureCelsius();
+    temperature = tempSensor->getCurrentTemperature();
 
     temperature -= brewTempOffset;
 
@@ -1930,10 +1806,6 @@ void setup() {
     setupDone = true;
 
     enableTimer1();
-
-    // Start the logger
-    Logger::begin();
-    Logger::setLevel(LOGLEVEL);
 
     double fsUsage = ((double)LittleFS.usedBytes() / LittleFS.totalBytes()) * 100;
     LOGF(INFO, "LittleFS: %d%% (used %ld bytes from %ld bytes)", (int)ceil(fsUsage), LittleFS.usedBytes(), LittleFS.totalBytes());
@@ -1993,7 +1865,13 @@ void looppid() {
         checkWifi();
     }
 
-    refreshTemp();       // update temperature values
+    // Update the temperature:
+    temperature = tempSensor->getCurrentTemperature();
+
+    if (machineState != kSteam) {
+        temperature -= brewTempOffset;
+    }
+
     testEmergencyStop(); // test if temp is too high
     bPID.Compute();      // the variable pidOutput now has new values from PID (will be written to heater pin in ISR.cpp)
 
