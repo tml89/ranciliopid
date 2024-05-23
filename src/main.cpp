@@ -85,7 +85,6 @@ enum MachineState {
     kShotTimerAfterBrew = 31,
     kBrewDetectionTrailing = 35,
     kSteam = 40,
-    kCoolDown = 45,
     kBackflush = 50,
     kWaterEmpty = 70,
     kEmergencyStop = 80,
@@ -292,7 +291,7 @@ SysPara<float> sysParaScaleKnownWeight(&scaleKnownWeight, 0, 2000, STO_ITEM_SCAL
 
 // Other variables
 boolean emergencyStop = false;                // Emergency stop if temperature is too high
-double EmergencyStopTemp = 120;               // Temp EmergencyStopTemp
+const double EmergencyStopTemp = 145;         // Temp EmergencyStopTemp
 float inX = 0, inY = 0, inOld = 0, inSum = 0; // used for filterPressureValue()
 boolean brewDetected = 0;
 boolean setupDone = false;
@@ -697,15 +696,6 @@ float filterPressureValue(float input) {
     return inSum;
 }
 
-void setEmergencyStopTemp() {
-    if (machineState == kSteam || machineState == kCoolDown) {
-        if (EmergencyStopTemp != 145) EmergencyStopTemp = 145;
-    }
-    else {
-        if (EmergencyStopTemp != 120) EmergencyStopTemp = 120;
-    }
-}
-
 void initSteamQM() {
     // Initialize monitoring for steam switch off for QuickMill thermoblock
     lastTimeOptocouplerOn = millis(); // time when optocoupler changes from ON to OFF
@@ -915,59 +905,15 @@ void handleMachineState() {
 
         case kSteam:
             if (steamON == 0) {
-                machineState = kCoolDown;
-            }
-
-            if (emergencyStop) {
-                machineState = kEmergencyStop;
-            }
-
-            if (backflushOn || backflushState > kBackflushWaitBrewswitchOn) {
-                machineState = kBackflush;
-            }
-
-            if (pidON == 0) {
-                machineState = kPidDisabled;
-            }
-
-            if (!waterFull) {
-                machineState = kWaterEmpty;
-            }
-
-            if (tempSensor->hasError()) {
-                machineState = kSensorError;
-            }
-            break;
-
-        case kCoolDown:
-            if (brewDetectionMode == 2 || brewDetectionMode == 3) {
-                /* For quickmill: steam detection only via switch, calling
-                 * brewDetection() detects new steam request
-                 */
-                brewDetection();
-            }
-
-            if (brewDetectionMode == 1 && BREWCONTROL_TYPE == 0) {
-                // if machine cooled down to 2°C above setpoint, enabled PID again
-                if (tempSensor->getAverageTemperatureRate() > 0 && temperature < brewSetpoint + 2) {
-                    machineState = kPidNormal;
-                }
-            }
-
-            if ((brewDetectionMode == 3 || brewDetectionMode == 2) && temperature < brewSetpoint + 2) {
                 machineState = kPidNormal;
             }
 
-            if (steamON == 1) {
-                machineState = kSteam;
+            if (emergencyStop) {
+                machineState = kEmergencyStop;
             }
 
             if (backflushOn || backflushState > kBackflushWaitBrewswitchOn) {
                 machineState = kBackflush;
-            }
-
-            if (emergencyStop) {
-                machineState = kEmergencyStop;
             }
 
             if (pidON == 0) {
@@ -1118,8 +1064,6 @@ char const* machinestateEnumToString(MachineState machineState) {
             return "Brew Detection Trailing";
         case kSteam:
             return "Steam";
-        case kCoolDown:
-            return "Cool Down";
         case kBackflush:
             return "Backflush";
         case kWaterEmpty:
@@ -1934,8 +1878,6 @@ void looppid() {
         setpoint = brewSetpoint;
     }
 
-    setEmergencyStopTemp();
-
     updateStandbyTimer();
 
     handleMachineState();
@@ -2020,35 +1962,6 @@ void looppid() {
         }
 
         bPID.SetTunings(steamKp, 0, 0, 1);
-    }
-
-    // chill-mode after steam
-    if (machineState == kCoolDown) {
-        switch (machine) {
-            case QuickMill:
-                aggbKp = 150;
-                aggbKi = 0;
-                aggbKd = 0;
-                break;
-
-            default:
-                // calc ki, kd
-                if (aggbTn != 0) {
-                    aggbKi = aggbKp / aggbTn;
-                }
-                else {
-                    aggbKi = 0;
-                }
-
-                aggbKd = aggbTv * aggbKp;
-        }
-
-        if (lastmachinestatepid != machineState) {
-            LOGF(DEBUG, "new PID-Values: P=%.1f  I=%.1f  D=%.1f", aggbKp, aggbKi, aggbKd);
-            lastmachinestatepid = machineState;
-        }
-
-        bPID.SetTunings(aggbKp, aggbKi, aggbKd, 1);
     }
     // sensor error OR Emergency Stop
 }
