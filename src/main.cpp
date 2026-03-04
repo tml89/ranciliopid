@@ -441,10 +441,9 @@ U8G2_SH1106_128X64_NONAME_F_4W_HW_SPI u8g2(U8G2_R0, OLED_CS, OLED_DC, /* reset=*
 #include "display/displayTemplateScale.h"
 #elif (DISPLAYTEMPLATE == 20)
 #include "display/displayTemplateUpright.h"
-
+#endif
 
 Timer printDisplayTimer(&printScreen, 100);
-#endif
 #endif
 
 #include "powerHandler.h"
@@ -1985,12 +1984,7 @@ void setCupLight(int r, int g, int b)
 }
 
 void ShowLED(){
-    unsigned long currentMillis = millis();
-    if (currentMillis - LastLEDShowTimestamp  >= 350  && machineState != kBrew) // if brew is broken try to not update LED on brew
-    {
-         FastLED.show();
-         LastLEDShowTimestamp = currentMillis;
-    }
+    FastLED.show();
 }
 
 /**
@@ -2002,81 +1996,107 @@ void Led_Exit(void)
     ShowLED();
 }
 
+void handleStandardLED() {
+    if (pidON == 0) {
+        if (statusLed) statusLed->turnOff();
+        if (brewLed) brewLed->turnOff();
+        return;
+    }
+
+    if (machineState == kSensorError || machineState == kEepromError || machineState == kEmergencyStop) {
+        static bool toggle = false;
+        if (toggle) {
+            if (statusLed) statusLed->turnOn();
+            if (brewLed) brewLed->turnOn();
+        } else {
+            if (statusLed) statusLed->turnOff();
+            if (brewLed) brewLed->turnOff();
+        }
+        toggle = !toggle;
+        return;
+    }
+
+    bool tempReady = ((machineState == kPidNormal || machineState == kBrewDetectionTrailing) && (fabs(temperature - setpoint) < 1.0)) ||
+                     (machineState == kSteam && temperature > steamSetpoint - 2);
+
+    if (statusLed) {
+        if (tempReady) statusLed->turnOn(); else statusLed->turnOff();
+    }
+
+    if (brewLed) {
+        if (machineState == kBrew) brewLed->turnOn(); else brewLed->turnOff();
+    }
+}
+
+void handleWS2812() {
+    if (pidON == 0) {
+        Led_Exit();
+        return;
+    }
+
+    // Power LED Logic
+    if (machineState == kSteam) {
+        leds[POWER_LED] = CRGB::OrangeRed;
+        // Breathing effect while heating
+        if (temperature < steamSetpoint - 2) {
+             uint8_t breath = beatsin8(30, 50, 255);
+             leds[POWER_LED].nscale8(breath);
+        }
+    } else if (machineState == kBackflush) {
+        leds[POWER_LED] = CRGB::Teal;
+    } else if (machineState == kSensorError || machineState == kEepromError || machineState == kEmergencyStop) {
+        leds[POWER_LED] = CRGB::Red;
+    } else {
+        leds[POWER_LED] = CRGB::Green;
+    }
+
+    // Status LED Logic
+    if (machineState == kBackflush) {
+        leds[STATUS_LED] = CRGB::Black;
+    } else if (machineState == kSensorError || machineState == kEepromError || machineState == kEmergencyStop) {
+        leds[STATUS_LED] = CRGB::Red;
+    } else if (machineState == kBrew) {
+         double value = (double)timeBrewed / (double)totalBrewTime;
+         if (value > 1.0) value = 1.0;
+         leds[STATUS_LED].setHue((uint8_t)(85 - (90 * value)));
+    } else {
+         bool ready = ((machineState == kPidNormal || machineState == kBrewDetectionTrailing) && (fabs(temperature - setpoint) < 1.0)) ||
+                      (machineState == kSteam && temperature > steamSetpoint - 2);
+         
+         if (ready) {
+             leds[STATUS_LED] = CRGB::Black;
+         } else {
+             leds[STATUS_LED] = CRGB::White;
+         }
+    }
+
+    setCupLight(CRGB::White);
+
+    // Apply brightness scaling
+    leds[POWER_LED].nscale8(BRIGHTNESS);
+    leds[STATUS_LED].nscale8(BRIGHTNESS);
+
+    FastLED.setTemperature(Candle);
+    FastLED.show();
+}
+
 /**
  * @brief set Status LED to maschine brew/Steam readyness
  */
 void loopLED()
 {
-    if (FEATURE_BREW_LED <= 0)
-    {
-        return;
+    if (FEATURE_BREW_LED <= 0) return;
+
+    // Throttle updates to ~20Hz (50ms)
+    static unsigned long lastUpdate = 0;
+    if (millis() - lastUpdate < 50) return;
+    lastUpdate = millis();
+
+    if (LED_TYPE == LED::WS2812) {
+        handleWS2812();
+    } else {
+        handleStandardLED();
     }
-
-    // LED off if PID is offline
-    if (pidON == 0 )// == kStandby || machineState == kPidDisabled )
-    {
-        // Turn power- status and cup leds off
-        Led_Exit();
-        return;
-    }
-    else // Brew Mode = PID On
-    {
-        leds[POWER_LED] = CRGB::Green;
-        setCupLight(CRGB::White);
-    }
-
-    // Set Power LED to steam
-    if (machineState == kSteam)
-    {
-        leds[POWER_LED] = CRGB::OrangeRed;
-    }
-
-    // Fade led on steam heating
-    if (machineState == kSteam && temperature < steamSetpoint - 2)
-    {
-        //ToDo
-    }
-
-    // Set Power and status LED to backflush
-    if (machineState == kBackflush)
-    {
-        leds[POWER_LED] = CRGB::Teal;
-        leds[STATUS_LED] = CRGB::Black;
-    }
-
-    // check brew / steam ready
-    if (((machineState == kPidNormal || machineState == kBrewDetectionTrailing) &&
-         (fabs(temperature - setpoint) < 1.0)) ||
-        (machineState == kSteam && temperature > steamSetpoint - 2))
-    {
-         leds[STATUS_LED] = CRGB::Black;
-    }
-    else
-    {
-        leds[STATUS_LED] = CRGB::White;
-    }
-
-    // Red led on error
-    if (machineState == kSensorError || machineState == kEepromError || machineState == kEmergencyStop)
-    {
-        leds[POWER_LED] = CRGB::Red;
-        leds[STATUS_LED] = CRGB::Red;
-    }
-
-    // on brew led indicates between gradient green (beginning) => red (end)
-    if (machineState == kBrew)
-    {
-        double value = (double)timeBrewed / (double)totalBrewTime; // take total brewtime including preinfusion
-        leds[STATUS_LED].setHue((uint8_t)85 - (90 * value));
-    }
-
-    leds[POWER_LED].fadeToBlackBy(255 - BRIGHTNESS);
-    leds[STATUS_LED].fadeToBlackBy(255 - BRIGHTNESS);
-
-    FastLED.setTemperature(Candle);
-
-    ShowLED();
-
 }
 
 void checkWater() {

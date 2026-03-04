@@ -1,24 +1,24 @@
-import pkg_resources
+import subprocess
 
 Import("env")
 
-required_pkgs = {'dulwich'}
-installed_pkgs = {pkg.key for pkg in pkg_resources.working_set}
-missing_pkgs = required_pkgs - installed_pkgs
 
-if missing_pkgs:
-    env.Execute('$PYTHONEXE -m pip install dulwich --global-option="--pure"')
+def get_firmware_version():
+    try:
+        # Git Commit Hash abrufen (Short hash, 7 chars)
+        ret = (
+            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+            .decode("utf-8")
+            .strip()
+        )
+        return ret
+    except Exception as e:
+        print(f"Warning: Could not get git version: {e}")
+        return "unknown"
 
-from dulwich.repo import Repo
 
-def get_version_build_flag() -> str:
-    r = Repo('.')
+build_version = get_firmware_version()
 
-    build_version = r.head().decode("utf-8")[0:7]
+print(f"Firmware Revision: {build_version}")
 
-    build_flag = "-D AUTO_VERSION=\\\"" + build_version + "\\\""
-    print ("Firmware Revision: " + build_version)
-
-    return (build_flag)
-
-env.Append(BUILD_FLAGS=[get_version_build_flag()])
+env.Append(BUILD_FLAGS=[f'-D AUTO_VERSION=\\"{build_version}\\"'])
