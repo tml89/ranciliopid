@@ -487,43 +487,23 @@ void initOfflineMode() {
 void checkWifi() {
     if (offlineMode == 1 || currBrewState > kBrewIdle) return;
 
-    // There was no WIFI connection at boot -> connect and if it does not succeed, enter offline mode
-    do {
-        if ((millis() - lastWifiConnectionAttempt >= wifiConnectionDelay) && (wifiReconnects <= maxWifiReconnects)) {
-            int statusTemp = WiFi.status();
-
-            if (statusTemp != WL_CONNECTED) { // check WiFi connection status
-                lastWifiConnectionAttempt = millis();
-                wifiReconnects++;
-                LOGF(INFO, "Attempting WIFI (re-)connection: %i", wifiReconnects);
-
-                if (!setupDone) {
-#if OLED_DISPLAY != 0
-                    displayMessage("", "", "", "", langstring_wifirecon, String(wifiReconnects));
-#endif
-                }
-
-                wm.disconnect();
-                wm.autoConnect();
-
-                int count = 1;
-
-                while (WiFi.status() != WL_CONNECTED && count <= 20) {
-                    delay(100); // give WIFI some time to connect
-                    count++;    // reconnect counter, maximum waiting time for reconnect = 20*100ms
-                }
-            }
-        }
-
-        yield(); // Prevent WDT trigger
-    } while (!setupDone && wifiReconnects < maxWifiReconnects && WiFi.status() != WL_CONNECTED);
-
-    if (wifiReconnects >= maxWifiReconnects && WiFi.status() != WL_CONNECTED) {
-        // no wifi connection after trying connection, initiate offline mode
-        initOfflineMode();
-    }
-    else {
+    if (WiFi.status() == WL_CONNECTED) {
         wifiReconnects = 0;
+        return;
+    }
+
+    if (millis() - lastWifiConnectionAttempt >= wifiConnectionDelay) {
+        if (wifiReconnects < maxWifiReconnects) {
+            lastWifiConnectionAttempt = millis();
+            wifiReconnects++;
+            LOGF(INFO, "Attempting WIFI (re-)connection: %i", wifiReconnects);
+
+            WiFi.disconnect();
+            WiFi.reconnect(); // Non-blocking reconnect
+        } else {
+            // no wifi connection after trying connection, initiate offline mode
+            initOfflineMode();
+        }
     }
 }
 

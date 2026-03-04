@@ -72,8 +72,13 @@ void checkMQTT() {
         return;
     }
 
-    if ((millis() - lastMQTTConnectionAttempt >= wifiConnectionDelay) && (MQTTReCnctCount <= maxWifiReconnects)) {
-        if (!mqtt.connected()) {
+    if (mqtt.connected()) {
+        MQTTReCnctCount = 0;
+        return;
+    }
+
+    if ((millis() - lastMQTTConnectionAttempt >= wifiConnectionDelay)) {
+        if (MQTTReCnctCount < maxWifiReconnects) {
             lastMQTTConnectionAttempt = millis(); // Reconnection Timer Function
             MQTTReCnctCount++;                    // Increment reconnection Counter
             LOGF(DEBUG, "Attempting MQTT reconnection: %i", MQTTReCnctCount);
