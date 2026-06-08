@@ -6,18 +6,11 @@
  */
 
 #pragma once
-#include "displayCommon.h"
 
 /**
  * @brief Send data to display
  */
-void printScreen() {
-
-    // Show shot timer:
-    if (displayShottimer()) {
-        // Display was updated, end here
-        return;
-    }
+inline void printScreen() {
 
     // Print the machine state
     if (displayMachineState()) {
@@ -27,84 +20,85 @@ void printScreen() {
 
     // If no specific machine state was printed, print default:
 
-    u8g2.clearBuffer();
-    u8g2.setFont(u8g2_font_profont11_tf); // set font
+    u8g2->clearBuffer();
+    u8g2->setFont(u8g2_font_profont11_tf); // set font
 
     displayStatusbar();
 
-    u8g2.setCursor(35, 16);
-    u8g2.print(langstring_current_temp);
-    u8g2.setCursor(84, 16);
-    u8g2.print(temperature, 1);
-    u8g2.setCursor(114, 16);
-    u8g2.print((char)176);
-    u8g2.print("C");
-    u8g2.setCursor(35, 26);
-    u8g2.print(langstring_set_temp);
-    u8g2.setCursor(84, 26);
-    u8g2.print(setpoint, 1);
-    u8g2.setCursor(114, 26);
-    u8g2.print((char)176);
-    u8g2.print("C");
+    u8g2->setCursor(34, 16);
+    u8g2->print(langstring_current_temp);
+    u8g2->setCursor(84, 16);
+    u8g2->print(temperature, 1);
+    u8g2->setCursor(115, 16);
+    u8g2->print(static_cast<char>(176));
+    u8g2->print("C");
+    u8g2->setCursor(34, 26);
+    u8g2->print(langstring_set_temp);
+    u8g2->setCursor(84, 26);
+    u8g2->print(setpoint, 1);
+    u8g2->setCursor(115, 26);
+    u8g2->print(static_cast<char>(176));
+    u8g2->print("C");
 
     displayThermometerOutline(4, 62);
 
     // Draw current temp in thermometer
-    if (fabs(temperature - setpoint) < 0.3) {
-        if (isrCounter < 500) {
-            drawTemperaturebar(8, 50, 30);
+    bool nearSetpoint = fabs(temperature - setpoint) <= config.get<float>("display.blinking.delta");
+
+    if (!(isrCounter < 500 && ((nearSetpoint && config.get<int>("display.blinking.mode") == 1) || (!nearSetpoint && config.get<int>("display.blinking.mode") == 2)))) {
+        drawTemperaturebar(8, 30);
+    }
+
+    // Brew and flush time
+    if (config.get<bool>("hardware.switches.brew.enabled")) {
+        // Show flush time
+        if (machineState == kManualFlush) {
+            displayBrewTime(34, 36, langstring_manual_flush, currBrewTime);
         }
-    }
-    else {
-        drawTemperaturebar(8, 50, 30);
-    }
-
-    // Brew time
-    u8g2.setCursor(35, 36);
-
-    // Shot timer shown if machine is brewing and after the brew
-    if (machineState == kBrew || machineState == kShotTimerAfterBrew) {
-        u8g2.print(langstring_brew);
-        u8g2.setCursor(84, 36);
-        u8g2.print(timeBrewed / 1000, 0);
-        u8g2.print("/");
-
-        if (BREWCONTROL_TYPE == 0) {
-            u8g2.print(brewtimesoftware, 0);
+        // Show hot water time
+        else if (machineState == kHotWater) {
+            displayBrewTime(34, 36, langstring_hot_water, currPumpOnTime);
         }
         else {
-            u8g2.print(totalBrewTime / 1000, 1);
+            if (shouldDisplayBrewTimer()) {
+                if (config.get<bool>("brew.by_time.enabled") && config.get<int>("brew.mode") == 1) {
+                    displayBrewTime(34, 36, langstring_brew, currBrewTime, totalTargetBrewTime);
+                }
+                else {
+                    displayBrewTime(34, 36, langstring_brew, currBrewTime);
+                }
+            }
         }
     }
 
     // PID values over heat bar
-    u8g2.setCursor(38, 47);
+    u8g2->setCursor(38, 47);
 
-    u8g2.print(bPID.GetKp(), 0);
-    u8g2.print("|");
+    u8g2->print(bPID.GetKp(), 0);
+    u8g2->print("|");
 
     if (bPID.GetKi() != 0) {
-        u8g2.print(bPID.GetKp() / bPID.GetKi(), 0);
+        u8g2->print(bPID.GetKp() / bPID.GetKi(), 0);
     }
     else {
-        u8g2.print("0");
+        u8g2->print("0");
     }
 
-    u8g2.print("|");
-    u8g2.print(bPID.GetKd() / bPID.GetKp(), 0);
-    u8g2.setCursor(96, 47);
+    u8g2->print("|");
+    u8g2->print(bPID.GetKd() / bPID.GetKp(), 0);
+    u8g2->setCursor(96, 47);
 
     if (pidOutput < 99) {
-        u8g2.print(pidOutput / 10, 1);
+        u8g2->print(pidOutput / 10, 1);
     }
     else {
-        u8g2.print(pidOutput / 10, 0);
+        u8g2->print(pidOutput / 10, 0);
     }
 
-    u8g2.print("%");
+    u8g2->print("%");
 
     // Show heater output in %
     displayProgressbar(pidOutput / 10, 30, 60, 98);
 
-    u8g2.sendBuffer();
+    displayBufferReady = true;
 }
