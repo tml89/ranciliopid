@@ -6,18 +6,11 @@
  */
 
 #pragma once
-#include "displayCommon.h"
 
 /**
  * @brief Send data to display
  */
-void printScreen() {
-
-    // Show shot timer:
-    if (displayShottimer()) {
-        // Display was updated, end here
-        return;
-    }
+inline void printScreen() {
 
     // Print the machine state
     if (displayMachineState()) {
@@ -26,73 +19,78 @@ void printScreen() {
     }
 
     // If no specific machine state was printed, print default:
-    u8g2.clearBuffer();
+    u8g2->clearBuffer();
 
     displayStatusbar();
 
     displayThermometerOutline(4, 62);
 
     // Draw current temp in thermometer
-    if (fabs(temperature - setpoint) < 0.3) {
-        if (isrCounter < 500) {
-            drawTemperaturebar(8, 50, 30);
+    bool nearSetpoint = fabs(temperature - setpoint) <= config.get<float>("display.blinking.delta");
+
+    if (!(isrCounter < 500 && ((nearSetpoint && config.get<int>("display.blinking.mode") == 1) || (!nearSetpoint && config.get<int>("display.blinking.mode") == 2)))) {
+        drawTemperaturebar(8, 30);
+    }
+
+    // Draw current temp and temp setpoint
+    u8g2->setFont(u8g2_font_profont11_tf);
+
+    u8g2->setCursor(32, 16);
+    u8g2->print("T: ");
+    u8g2->print(temperature, 1);
+    u8g2->print("/");
+    u8g2->print(setpoint, 1);
+    u8g2->print(static_cast<char>(176));
+    u8g2->print("C");
+
+    if (scale) {
+        // Show current weight if scale has no error
+        displayBrewWeight(32, 26, currReadingWeight, -1, scaleFailure);
+    }
+
+    if (config.get<bool>("hardware.switches.brew.enabled")) {
+        // Show flush time
+        if (machineState == kManualFlush) {
+            displayBrewTime(32, 36, langstring_manual_flush, currBrewTime);
+        }
+        // Show hot water time
+        else if (machineState == kHotWater) {
+            displayBrewTime(32, 36, langstring_hot_water, currPumpOnTime);
+        }
+        else if (shouldDisplayBrewTimer()) {
+            const bool automaticBrewingEnabled = config.get<bool>("brew.mode") == 1;
+
+            // Time
+            if (automaticBrewingEnabled && config.get<bool>("brew.by_time.enabled")) {
+                displayBrewTime(32, 36, langstring_brew, currBrewTime, totalTargetBrewTime);
+            }
+            else {
+                displayBrewTime(32, 36, langstring_brew, currBrewTime);
+            }
+
+            // Weight
+            if (scale) {
+                if (automaticBrewingEnabled && config.get<bool>("brew.by_weight.enabled")) {
+                    const auto targetBrewWeight = ParameterRegistry::getInstance().getParameterById("brew.by_weight.target_weight")->getValueAs<float>();
+                    displayBrewWeight(32, 26, currBrewWeight, targetBrewWeight, scaleFailure);
+                }
+                else {
+                    displayBrewWeight(32, 26, currBrewWeight, -1, scaleFailure);
+                }
+            }
         }
     }
-    else {
-        drawTemperaturebar(8, 50, 30);
+
+    if (config.get<bool>("hardware.sensors.pressure.enabled")) {
+        u8g2->setCursor(32, 46);
+        u8g2->drawUTF8(32, 46, langstring_pressure);
+        int labelWidth = u8g2->getUTF8Width(langstring_pressure);
+        u8g2->setCursor(32 + labelWidth, 46);
+        u8g2->print(inputPressure, 1);
     }
-
-    u8g2.setFont(u8g2_font_profont11_tf);
-
-    u8g2.setCursor(32, 16);
-    u8g2.print("T: ");
-    u8g2.print(temperature, 1);
-
-    u8g2.print("/");
-    u8g2.print(setpoint, 1);
-
-    u8g2.setCursor(32, 26);
-    u8g2.print("W: ");
-
-    if (scaleFailure) {
-        u8g2.print("fault");
-    }
-    else {
-        if (machineState == kBrew) {
-            u8g2.print(weightBrew, 0);
-        }
-        else {
-            u8g2.print(weight, 0);
-        }
-
-        u8g2.print("/");
-        u8g2.print(weightSetpoint, 0);
-        u8g2.print(" (");
-        u8g2.print(weightBrew, 1);
-        u8g2.print(")");
-    }
-
-    // Brew
-    u8g2.setCursor(32, 36);
-    u8g2.print("t: ");
-    u8g2.print(timeBrewed / 1000, 0);
-    u8g2.print("/");
-
-    if (BREWCONTROL_TYPE == 0) {
-        u8g2.print(brewtimesoftware, 0);
-    }
-    else {
-        u8g2.print(totalBrewTime / 1000, 1);
-    }
-
-#if (FEATURE_PRESSURESENSOR == 1)
-    u8g2.setCursor(32, 46);
-    u8g2.print("P: ");
-    u8g2.print(inputPressure, 1);
-#endif
 
     // Show heater output in %
     displayProgressbar(pidOutput / 10, 30, 60, 98);
 
-    u8g2.sendBuffer();
+    displayBufferReady = true;
 }
