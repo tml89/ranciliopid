@@ -37,8 +37,8 @@
 #define PIN_PUMP   27
 #define PIN_HEATER 2
 
-// LEDs
-//#define PIN_STATUSLED 26
+// LEDs (individual pins — only used when hardware.leds.type == STANDARD)
+// When WS2812 mode is active, these are skipped entirely
 #define PIN_BREWLED   19
 #define PIN_STEAMLED  1
 

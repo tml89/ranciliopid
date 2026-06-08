@@ -1030,24 +1030,26 @@ void setup() {
         hotWaterSwitch = new IOSwitch(PIN_WATERSWITCH, GPIOPin::IN_HARDWARE, type, mode, mode);
     }
 
-    if (config.get<bool>("hardware.leds.status.enabled")) {
-        const bool inverted = config.get<bool>("hardware.leds.status.inverted");
-        statusLedPin = new GPIOPin(PIN_STATUSLED, GPIOPin::OUT);
-        statusLed = new StandardLED(*statusLedPin, inverted);
-        statusLed->turnOff();
-    }
+    if (config.get<int>("hardware.leds.type") != 1) {  // Skip StandardLEDs when using WS2812
+        if (config.get<bool>("hardware.leds.status.enabled")) {
+            const bool inverted = config.get<bool>("hardware.leds.status.inverted");
+            statusLedPin = new GPIOPin(PIN_STATUSLED, GPIOPin::OUT);
+            statusLed = new StandardLED(*statusLedPin, inverted);
+            statusLed->turnOff();
+        }
 
-    if (config.get<bool>("hardware.leds.brew.enabled")) {
-        const bool inverted = config.get<bool>("hardware.leds.brew.inverted");
-        brewLedPin = new GPIOPin(PIN_BREWLED, GPIOPin::OUT);
-        brewLed = new StandardLED(*brewLedPin, inverted);
-        brewLed->turnOff();
-    }
-    if (config.get<bool>("hardware.leds.steam.enabled")) {
-        const bool inverted = config.get<bool>("hardware.leds.steam.inverted");
-        steamLedPin = new GPIOPin(PIN_STEAMLED, GPIOPin::OUT);
-        steamLed = new StandardLED(*steamLedPin, inverted);
-        steamLed->turnOff();
+        if (config.get<bool>("hardware.leds.brew.enabled")) {
+            const bool inverted = config.get<bool>("hardware.leds.brew.inverted");
+            brewLedPin = new GPIOPin(PIN_BREWLED, GPIOPin::OUT);
+            brewLed = new StandardLED(*brewLedPin, inverted);
+            brewLed->turnOff();
+        }
+        if (config.get<bool>("hardware.leds.steam.enabled")) {
+            const bool inverted = config.get<bool>("hardware.leds.steam.inverted");
+            steamLedPin = new GPIOPin(PIN_STEAMLED, GPIOPin::OUT);
+            steamLed = new StandardLED(*steamLedPin, inverted);
+            steamLed->turnOff();
+        }
     }
 
     // NeoPixel WS2812 LED initialization

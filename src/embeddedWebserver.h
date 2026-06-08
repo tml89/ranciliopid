@@ -44,6 +44,12 @@ inline bool authenticate(AsyncWebServerRequest* request) {
     const auto username = config.get<String>("system.auth.username");
     const auto password = config.get<String>("system.auth.password");
 
+    // Skip auth if credentials are empty — no point requiring login with blank user/pass
+    if (username.length() == 0 || password.length() == 0) {
+        LOGF(DEBUG, "Web auth skipped: empty credentials, %s -> %s", clientIP.c_str(), requestedPath.c_str());
+        return true;
+    }
+
     if (request->authenticate(username.c_str(), password.c_str())) {
         LOGF(DEBUG, "Web auth OK: %s -> %s", clientIP.c_str(), requestedPath.c_str());
 

@@ -1133,6 +1133,20 @@ void ParameterRegistry::initialize(Config& config) {
         true
     );
 
+    static const char* const ledTypes[] = {"Standard", "WS2812"};
+    addEnumConfigParam(
+        "hardware.leds.type",
+        "LED Type",
+        sHardwareLedSection,
+        2330,
+        nullptr,
+        ledTypes,
+        2,
+        "Type of LED: Standard (GPIO) or WS2812 (addressable NeoPixel)",
+        [] { return true; },
+        true
+    );
+
     // Sensors
     addEnumConfigParam(
         "hardware.sensors.temperature.type",
